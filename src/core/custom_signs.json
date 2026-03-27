@@ -1,0 +1,59 @@
+{
+    "THUMBS UP": {
+        "finger_states": [
+            0,
+            0,
+            1,
+            1,
+            1
+        ],
+        "distances": {
+            "thumb_index": 1.407573842655304,
+            "thumb_middle": 1.7323667630034592,
+            "thumb_ring": 2.023580298349177,
+            "thumb_pinky": 2.33217119788562,
+            "index_middle": 0.3278548971489315,
+            "middle_ring": 0.29306581091776407,
+            "ring_pinky": 0.30942175656414234
+        },
+        "handedness": "Right"
+    },
+    "OK": {
+        "finger_states": [
+            0,
+            0,
+            1,
+            1,
+            1
+        ],
+        "distances": {
+            "thumb_index": 0.13307014243646614,
+            "thumb_middle": 0.989339931151718,
+            "thumb_ring": 1.1558346474516834,
+            "thumb_pinky": 1.1570125394626751,
+            "index_middle": 0.8660997618654375,
+            "middle_ring": 0.27857014851516215,
+            "ring_pinky": 0.3554409629528806
+        },
+        "handedness": "Right"
+    },
+    "MIDDLE FINGER": {
+        "finger_states": [
+            0,
+            0,
+            1,
+            0,
+            0
+        ],
+        "distances": {
+            "thumb_index": 0.5634147438263225,
+            "thumb_middle": 1.299814931355981,
+            "thumb_ring": 0.825207352231072,
+            "thumb_pinky": 1.08748328364257,
+            "index_middle": 1.8564534217928388,
+            "middle_ring": 2.011665844744896,
+            "ring_pinky": 0.2862047779690661
+        },
+        "handedness": "Right"
+    }
+}

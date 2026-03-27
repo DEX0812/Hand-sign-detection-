@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Camera Diagnostic</title>
+</head>
+<body>
+    <h1>Camera Diagnostic</h1>
+    <video id="video" width="640" height="480" autoplay playsinline style="border: 1px solid black;"></video>
+    <p id="status">Status: Waiting for interaction...</p>
+    <button onclick="start()">Start Camera</button>
+    <script>
+        async function start() {
+            const status = document.getElementById('status');
+            const video = document.getElementById('video');
+            status.innerText = "Status: Requesting camera...";
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                status.innerText = "Status: Camera streaming!";
+            } catch (err) {
+                status.innerText = "Status: Error - " + err.message;
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+</html>
