@@ -76,7 +76,16 @@ export default function DetectorPage() {
     };
     init();
 
-    socketRef.current = io(SOCKET_URL);
+    socketRef.current = io(SOCKET_URL, {
+      transports: ['websocket'],
+      secure: true,
+      reconnectionAttempts: 5
+    });
+
+    socketRef.current.on('connect', () => {
+      console.log("Neural Uplink Established via WebSocket");
+    });
+
     socketRef.current.on('recognition_result', (data) => {
       setRecognition(prev => ({
         ...data,

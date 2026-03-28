@@ -39,20 +39,20 @@
     },
     "VICTORY": {
         "finger_states": [
-            1,
+            0,
             1,
             1,
             0,
             0
         ],
         "distances": {
-            "thumb_index": 1.0980161600966416,
-            "thumb_middle": 1.2284904924174607,
-            "thumb_ring": 0.027265870770994714,
-            "thumb_pinky": 0.21691385210525302,
-            "index_middle": 0.3602693889090029,
-            "middle_ring": 1.2028133559189276,
-            "ring_pinky": 0.2440350279382072
+            "thumb_index": 1.3683933136118502,
+            "thumb_middle": 1.677036614862446,
+            "thumb_ring": 0.1472549822184483,
+            "thumb_pinky": 0.3322788664799913,
+            "index_middle": 0.585540763188573,
+            "middle_ring": 1.8238452298236516,
+            "ring_pinky": 0.1927013879583751
         },
         "handedness": "Right"
     }
