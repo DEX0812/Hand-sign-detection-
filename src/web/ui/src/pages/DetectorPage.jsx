@@ -55,6 +55,8 @@ export default function DetectorPage() {
   const landmarkerRef = useRef(null);
   const rafRef = useRef(null);
   const isProcessingRef = useRef(false);
+  const frameCountRef = useRef(0);
+  const lastEmitTimeRef = useRef(0);
 
   useEffect(() => {
     const init = async () => {
@@ -90,45 +92,49 @@ export default function DetectorPage() {
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    
     if (video.readyState >= 2) {
       const ctx = canvas.getContext('2d');
-      ctx.save();
-      ctx.scale(-1, 1);
-      ctx.translate(-canvas.width, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      frameCountRef.current++;
+      
+      // Zero-Lag: Only detect every 3rd frame (~20 FPS)
+      if (frameCountRef.current % 3 === 0) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
 
-      const results = landmarkerRef.current.detectForVideo(video, performance.now());
-      const landmarks = results.landmarks?.[0] || [];
+        const results = landmarkerRef.current.detectForVideo(video, performance.now());
+        const landmarks = results.landmarks?.[0] || [];
 
-      if (landmarks.length > 0) {
-        // Draw skeleton (Cosmic Spec)
-        ctx.strokeStyle = 'rgba(0, 255, 230, 0.8)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-        HAND_CONNECTIONS.forEach(([s, e]) => {
-          const p1 = landmarks[s], p2 = landmarks[e];
-          if (p1 && p2) {
-            ctx.beginPath();
-            ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
-            ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
-            ctx.stroke();
+        if (landmarks.length > 0) {
+          // Draw skeleton (Cosmic Spec)
+          ctx.strokeStyle = 'rgba(0, 255, 230, 0.8)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+          HAND_CONNECTIONS.forEach(([s, e]) => {
+            const p1 = landmarks[s], p2 = landmarks[e];
+            if (p1 && p2) {
+              ctx.beginPath();
+              ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
+              ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+              ctx.stroke();
+            }
+          });
+
+          // Throttled Socket Emission (Min 100ms)
+          const now = performance.now();
+          if (socketRef.current?.connected && !isProcessingRef.current && (now - lastEmitTimeRef.current > 100)) {
+            socketRef.current.emit('landmarks_data', { landmarks, handedness: 'Unknown' });
+            isProcessingRef.current = true;
+            lastEmitTimeRef.current = now;
+            
+            // Watchdog: reset processing flag if no response within 1 second
+            setTimeout(() => {
+              isProcessingRef.current = false;
+            }, 1000);
           }
-        });
-        landmarks.forEach(lm => {
-          ctx.fillStyle = '#ffffff'; ctx.beginPath();
-          ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 3, 0, Math.PI*2); ctx.fill();
-        });
-
-        if (socketRef.current?.connected && !isProcessingRef.current) {
-          socketRef.current.emit('landmarks_data', { landmarks, handedness: 'Unknown' });
-          isProcessingRef.current = true;
-          
-          // Watchdog: reset processing flag if no response within 1 second
-          setTimeout(() => {
-            isProcessingRef.current = false;
-          }, 1000);
         }
+        ctx.restore();
       }
-      ctx.restore();
     }
     rafRef.current = requestAnimationFrame(captureFrame);
   }, [isCapturing]);
@@ -143,7 +149,8 @@ export default function DetectorPage() {
       setIsCapturing(false);
       videoRef.current?.srcObject?.getTracks().forEach(t => t.stop());
     } else {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+      // Resolution Downscaling (640x480 Optimized Performance)
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
       videoRef.current.srcObject = stream;
       videoRef.current.onloadedmetadata = () => {
         videoRef.current.play();
