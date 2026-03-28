@@ -11,7 +11,7 @@ const getSocketUrl = () => {
   
   // Smart Discovery: Default to your production backend if on Vercel
   if (window.location.hostname.includes('vercel.app')) {
-    return 'https://sign-vision-backend.onrender.com';
+    return 'https://signvision-backend.onrender.com';
   }
   return 'http://127.0.0.1:8000';
 };
