@@ -3,12 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, Edit2, Check, X, Save, Plus, Camera, Search, RefreshCw, Zap } from 'lucide-react';
 import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { useMouseParallax } from '../hooks/useMouseParallax';
+import { Settings, ExternalLink, ShieldCheck } from 'lucide-react';
 
 const getSocketUrl = () => {
+  const savedUrl = localStorage.getItem('SIGNVISION_API_URL');
+  if (savedUrl) return savedUrl;
+  
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && envUrl.includes('render.com')) return envUrl;
   
-  // Smart Discovery: Default to your production backend if on Vercel
   if (window.location.hostname.includes('vercel.app')) {
     return 'https://signvision-backend.onrender.com';
   }
@@ -26,6 +29,8 @@ export default function AdminDashboard() {
   const [editingSign, setEditingSign] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMediaPipeReady, setIsMediaPipeReady] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
+  const [customApiUrl, setCustomApiUrl] = useState(SOCKET_URL);
 
   const videoRef = useRef(null);
   const landmarkerRef = useRef(null);
@@ -166,11 +171,53 @@ export default function AdminDashboard() {
         {/* LEFT: Management Panel */}
         <div className="lg:col-span-7 flex flex-col" style={{ gap: 'calc(var(--space-base) * 1.5)' }}>
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold font-display text-white">Sign Database</h1>
+            <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
+              <h1 className="text-3xl font-bold font-display text-white">Sign Database</h1>
+              <button 
+                onClick={() => setShowConfig(!showConfig)}
+                className={`p-1.5 rounded-lg transition-colors ${showConfig ? 'bg-cyan-500/20 text-cyan-400' : 'text-white/20 hover:text-white'}`}
+              >
+                <Settings size={20} />
+              </button>
+            </div>
             <button onClick={fetchSigns} className="p-2 text-white/20 hover:text-emerald-400 transition-colors">
               <RefreshCw size={18} />
             </button>
           </div>
+
+          {showConfig && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              className="glass p-6 rounded-2xl border border-cyan-500/20 flex flex-col gap-4 overflow-hidden"
+            >
+              <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-widest">
+                <ShieldCheck size={14} /> Production Neural Link
+              </div>
+              <p className="text-xs text-white/40 leading-relaxed font-sans">
+                If the detector is working but the database reveals a "Failed to Fetch" error, 
+                paste your Render Backend URL here and click save.
+              </p>
+              <div className="flex gap-2">
+                <input 
+                  type="text"
+                  placeholder="https://your-api.onrender.com"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-sm outline-none font-mono"
+                  value={customApiUrl}
+                  onChange={(e) => setCustomApiUrl(e.target.value)}
+                />
+                <button 
+                  onClick={() => {
+                    localStorage.setItem('SIGNVISION_API_URL', customApiUrl);
+                    window.location.reload();
+                  }}
+                  className="px-6 bg-cyan-500 text-black font-bold text-xs rounded-xl hover:bg-cyan-400 transition-all"
+                >
+                  Save & Connect
+                </button>
+              </div>
+            </motion.div>
+          )}
 
           <div className="glass px-6 py-4 flex items-center rounded-2xl border border-white/5 antigravity-lift" style={{ gap: 'var(--space-base)' }}>
             <Search className="text-white/20" size={20} />
