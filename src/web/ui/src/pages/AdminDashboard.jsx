@@ -99,14 +99,25 @@ export default function AdminDashboard() {
         },
         body: JSON.stringify({ label: newSignLabel.trim().toUpperCase(), landmarks: lm, handedness: 'Right' })
       });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Server returned ${res.status}: ${errorText || 'Unknown Error'}`);
+      }
+      
       const data = await res.json();
       if (data.status === 'success') {
         setTrainingStatus('✓ Done');
         setNewSignLabel('');
         fetchSigns();
         setTimeout(() => setTrainingStatus(''), 2000);
+      } else {
+        throw new Error(data.message || 'Back-end rejected the save.');
       }
-    } catch { setTrainingStatus('Error'); }
+    } catch (err) { 
+      setTrainingStatus(`Error: ${err.message}`);
+      console.error("Critical Saving Failure:", err);
+    }
   };
 
   const handleDelete = async (id) => {
