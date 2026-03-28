@@ -5,7 +5,18 @@ import io from 'socket.io-client';
 import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { useMouseParallax } from '../hooks/useMouseParallax';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const getSocketUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && envUrl.includes('render.com')) return envUrl;
+  
+  // Smart Discovery: Default to your production backend if on Vercel
+  if (window.location.hostname.includes('vercel.app')) {
+    return 'https://sign-vision-backend.onrender.com';
+  }
+  return 'http://127.0.0.1:8000';
+};
+
+const SOCKET_URL = getSocketUrl();
 const HAND_CONNECTIONS = [
   [0,1],[1,2],[2,3],[3,4], [0,5],[5,6],[6,7],[7,8], [0,9],[9,10],[10,11],[11,12],
   [0,13],[13,14],[14,15],[15,16], [0,17],[17,18],[18,19],[19,20], [5,9],[9,13],[13,17]

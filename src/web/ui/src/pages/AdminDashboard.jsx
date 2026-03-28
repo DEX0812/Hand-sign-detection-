@@ -4,7 +4,18 @@ import { Trash2, Edit2, Check, X, Save, Plus, Camera, Search, RefreshCw, Zap } f
 import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { useMouseParallax } from '../hooks/useMouseParallax';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const getSocketUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && envUrl.includes('render.com')) return envUrl;
+  
+  // Smart Discovery: Default to your production backend if on Vercel
+  if (window.location.hostname.includes('vercel.app')) {
+    return 'https://sign-vision-backend.onrender.com';
+  }
+  return 'http://127.0.0.1:8000';
+};
+
+const SOCKET_URL = getSocketUrl();
 
 export default function AdminDashboard() {
   const { rotateX, rotateY, onMouseMove, onMouseLeave } = useMouseParallax(8);
