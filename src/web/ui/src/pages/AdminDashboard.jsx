@@ -25,6 +25,7 @@ export default function AdminDashboard() {
   const [customApiUrl, setCustomApiUrl] = useState(SOCKET_URL);
 
   const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   const landmarkerRef = useRef(null);
   const latestLandmarksRef = useRef([]);
   const rafRef = useRef(null);
@@ -78,8 +79,13 @@ export default function AdminDashboard() {
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             results.landmarks.forEach((landmarks, index) => {
-              ctx.strokeStyle = index === 0 ? 'rgba(0, 255, 230, 0.8)' : 'rgba(255, 0, 230, 0.8)';
+              const baseColor = index === 0 ? 'rgba(0, 255, 230, 0.8)' : 'rgba(255, 0, 230, 0.8)';
+              const glowColor = index === 0 ? 'rgba(0, 255, 230, 0.4)' : 'rgba(255, 0, 230, 0.4)';
+              
+              ctx.strokeStyle = baseColor;
               ctx.lineWidth = 3; ctx.lineCap = 'round';
+              ctx.shadowBlur = 15; ctx.shadowColor = baseColor;
+              
               HAND_CONNECTIONS.forEach(([s, e]) => {
                 const p1 = landmarks[s], p2 = landmarks[e];
                 if (p1 && p2) {
@@ -88,6 +94,16 @@ export default function AdminDashboard() {
                   ctx.lineTo((1 - p2.x) * canvas.width, p2.y * canvas.height);
                   ctx.stroke();
                 }
+              });
+
+              // Draw Highlighted Joints
+              ctx.shadowBlur = 0;
+              landmarks.forEach(p => {
+                ctx.fillStyle = baseColor;
+                ctx.beginPath();
+                ctx.arc((1 - p.x) * canvas.width, p.y * canvas.height, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'white'; ctx.lineWidth = 1; ctx.stroke();
               });
             });
           }

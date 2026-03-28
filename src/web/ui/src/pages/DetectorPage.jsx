@@ -122,9 +122,12 @@ export default function DetectorPage() {
         
         if (results.landmarks && results.landmarks.length > 0) {
           results.landmarks.forEach((landmarks, index) => {
-            // Draw skeleton (Cosmic Spec) - Fixed Coordinate Mirroring
-            ctx.strokeStyle = index === 0 ? 'rgba(0, 255, 230, 0.8)' : 'rgba(255, 0, 230, 0.8)'; 
+            const baseColor = index === 0 ? 'rgba(0, 255, 230, 0.8)' : 'rgba(255, 0, 230, 0.8)';
+            
+            // Draw skeleton with Neon Glow
+            ctx.strokeStyle = baseColor;
             ctx.lineWidth = 3; ctx.lineCap = 'round';
+            ctx.shadowBlur = 15; ctx.shadowColor = baseColor;
             
             HAND_CONNECTIONS.forEach(([s, e]) => {
               const p1 = landmarks[s], p2 = landmarks[e];
@@ -136,7 +139,17 @@ export default function DetectorPage() {
               }
             });
 
-            // Stream Primary Hand (index 0) vs. Secondary (index 1)
+            // Draw Highlighted Joint Points
+            ctx.shadowBlur = 0;
+            landmarks.forEach(p => {
+              ctx.fillStyle = baseColor;
+              ctx.beginPath();
+              ctx.arc((1 - p.x) * canvas.width, p.y * canvas.height, 4, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = 'white'; ctx.lineWidth = 1; ctx.stroke();
+            });
+
+            // Stream Primary Hand (index 0)
             if (index === 0) {
               const now = performance.now();
               if (socketRef.current?.connected && !isProcessingRef.current && (now - lastEmitTimeRef.current > 100)) {
