@@ -346,7 +346,7 @@ export default function AdminDashboard() {
                 />
                 <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-10" width={640} height={480} />
                 {!isCapturing && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm">
+                  <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm">
                     <Camera className="text-white/20" size={48} />
                     <button onClick={toggleCamera} className="px-6 py-2 bg-white text-black text-sm font-bold rounded-xl active:scale-95 cursor-pointer antigravity-lift">
                       Enable Viewport
