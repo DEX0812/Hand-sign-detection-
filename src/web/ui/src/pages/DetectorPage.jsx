@@ -9,9 +9,9 @@ const getSocketUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && envUrl.includes('render.com')) return envUrl;
   
-  // Smart Discovery: Default to your production backend if on Vercel
+  // Primary Production Link
   if (window.location.hostname.includes('vercel.app')) {
-    return 'https://signvision-backend.onrender.com';
+    return 'https://hand-sign-detection-4pz0.onrender.com';
   }
   return 'http://127.0.0.1:8000';
 };
