@@ -331,7 +331,13 @@ export default function AdminDashboard() {
               onMouseLeave={onMouseLeave}
             >
               <motion.div style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }} className="w-full h-full relative">
-                <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover grayscale-[0.5] scale-x-[-1]" />
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  muted 
+                  className="absolute inset-0 w-full h-full object-cover grayscale-[0.5] scale-x-[-1]" 
+                />
                 <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-10" width={640} height={480} />
                 {!isCapturing && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm">

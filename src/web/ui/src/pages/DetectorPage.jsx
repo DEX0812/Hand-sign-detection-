@@ -216,7 +216,7 @@ export default function DetectorPage() {
             style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
             className="w-full h-full"
           >
-            <video ref={videoRef} className="absolute opacity-0" />
+            <video ref={videoRef} autoPlay playsInline muted className="absolute opacity-0" />
             <canvas ref={canvasRef} className="w-full h-full object-cover" />
             
             <AnimatePresence>
