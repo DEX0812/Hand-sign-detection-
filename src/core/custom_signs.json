@@ -1,58 +1,58 @@
 {
+    "HELLO": {
+        "finger_states": [
+            0,
+            1,
+            1,
+            1,
+            1
+        ],
+        "distances": {
+            "thumb_index": 0.7446817687342252,
+            "thumb_middle": 1.0302660104631254,
+            "thumb_ring": 1.0376508240891227,
+            "thumb_pinky": 1.0057002373645068,
+            "index_middle": 0.31555422947709394,
+            "middle_ring": 0.15969917237733264,
+            "ring_pinky": 0.3098634159885778
+        },
+        "handedness": "Right"
+    },
     "THUMBS UP": {
         "finger_states": [
+            1,
             0,
             0,
-            1,
-            1,
-            1
+            0,
+            0
         ],
         "distances": {
-            "thumb_index": 1.407573842655304,
-            "thumb_middle": 1.7323667630034592,
-            "thumb_ring": 2.023580298349177,
-            "thumb_pinky": 2.33217119788562,
-            "index_middle": 0.3278548971489315,
-            "middle_ring": 0.29306581091776407,
-            "ring_pinky": 0.30942175656414234
+            "thumb_index": 1.392614455121236,
+            "thumb_middle": 1.7027415424633452,
+            "thumb_ring": 2.027106133933169,
+            "thumb_pinky": 2.3257806008637765,
+            "index_middle": 0.3155001178344202,
+            "middle_ring": 0.3256490226883961,
+            "ring_pinky": 0.2991072216658216
         },
         "handedness": "Right"
     },
-    "OK": {
+    "VICTORY": {
         "finger_states": [
-            0,
-            0,
             1,
             1,
-            1
-        ],
-        "distances": {
-            "thumb_index": 0.13307014243646614,
-            "thumb_middle": 0.989339931151718,
-            "thumb_ring": 1.1558346474516834,
-            "thumb_pinky": 1.1570125394626751,
-            "index_middle": 0.8660997618654375,
-            "middle_ring": 0.27857014851516215,
-            "ring_pinky": 0.3554409629528806
-        },
-        "handedness": "Right"
-    },
-    "MIDDLE FINGER": {
-        "finger_states": [
-            0,
-            0,
             1,
             0,
             0
         ],
         "distances": {
-            "thumb_index": 0.5634147438263225,
-            "thumb_middle": 1.299814931355981,
-            "thumb_ring": 0.825207352231072,
-            "thumb_pinky": 1.08748328364257,
-            "index_middle": 1.8564534217928388,
-            "middle_ring": 2.011665844744896,
-            "ring_pinky": 0.2862047779690661
+            "thumb_index": 1.0980161600966416,
+            "thumb_middle": 1.2284904924174607,
+            "thumb_ring": 0.027265870770994714,
+            "thumb_pinky": 0.21691385210525302,
+            "index_middle": 0.3602693889090029,
+            "middle_ring": 1.2028133559189276,
+            "ring_pinky": 0.2440350279382072
         },
         "handedness": "Right"
     }

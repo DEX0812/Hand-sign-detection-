@@ -5,6 +5,13 @@ echo ======================================================
 echo    STARTING SIGNVISION AI
 echo ======================================================
 
+:: 0. Clean up old processes
+echo [0] Cleaning up old sessions...
+taskkill /F /IM python.exe /T 2>nul
+taskkill /F /IM node.exe /T 2>nul
+taskkill /F /FI "WINDOWTITLE eq SignVision-*" /T 2>nul
+timeout /t 2 /nobreak >nul
+
 :: Get project root
 set PROJECT_ROOT=%~dp0
 

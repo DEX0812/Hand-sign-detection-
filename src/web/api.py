@@ -102,10 +102,66 @@ async def train_sign(data: dict):
 async def get_status():
     return {"status": "ok", "detector_ready": detector.hand_landmarker is not None}
 
+@app.get("/signs")
+async def get_signs():
+    """Get all signs (system + custom)."""
+    return {"signs": detector.get_all_signs()}
+
+@app.delete("/signs/{label}")
+async def delete_sign(label: str):
+    """Delete a custom sign."""
+    success = detector.remove_sign(label)
+    return {"status": "success" if success else "error"}
+
+@app.post("/signs/rename")
+async def rename_sign(data: dict):
+    """Rename a custom sign."""
+    old_label = data.get("old_label")
+    new_label = data.get("new_label")
+    if not old_label or not new_label:
+        return {"status": "error", "message": "Missing old_label or new_label"}
+    success = detector.rename_sign(old_label, new_label)
+    return {"status": "success" if success else "error"}
+
 @app.post("/clear")
 async def clear_sentence():
     detector.current_sentence = ""
+    # Broadcast update to all clients
+    await sio.emit('recognition_result', {
+        "letter": "?",
+        "sentence": "",
+        "confidence": 0,
+        "fps": int(detector.fps),
+        "landmarks": []
+    })
     return {"status": "cleared"}
+
+@app.post("/backspace")
+async def backspace_sentence():
+    sentence = detector.backspace()
+    # Broadcast update to all clients
+    await sio.emit('recognition_result', {
+        "letter": "?",
+        "sentence": sentence,
+        "confidence": 0,
+        "fps": int(detector.fps),
+        "landmarks": []
+    })
+    return {"status": "backspaced", "sentence": sentence}
+
+@app.post("/space")
+async def add_space():
+    if detector.current_sentence and detector.current_sentence[-1] != " ":
+        detector.current_sentence += " "
+    # Broadcast update to all clients
+    await sio.emit('recognition_result', {
+        "letter": "?",
+        "sentence": detector.current_sentence,
+        "confidence": 0,
+        "fps": int(detector.fps),
+        "landmarks": []
+    })
+    return {"status": "space_added", "sentence": detector.current_sentence}
 
 if __name__ == "__main__":
     uvicorn.run(socket_app, host="0.0.0.0", port=8000)

@@ -81,8 +81,22 @@ class RuleBasedRecognizer:
     def __init__(self):
         self.feature_extractor = FeatureExtractor()
     
-    def recognize(self, landmarks: List[HandPoint], handedness: str) -> RecognitionResult:
-        """Recognize letter using rules."""
+    def recognize(self, landmarks: List[HandPoint], handedness: str, config: dict = None) -> RecognitionResult:
+        """Recognize letter using rules with optional config for renames/disabling."""
+        config = config or {}
+        result = self._recognize_raw(landmarks, handedness)
+        
+        # Post-process based on system config
+        if result.letter != "?":
+            label_config = config.get(result.letter, {})
+            if label_config.get("disabled"):
+                return RecognitionResult("?", 0.0, finger_states=result.finger_states)
+            result.letter = label_config.get("rename", result.letter)
+            
+        return result
+
+    def _recognize_raw(self, landmarks: List[HandPoint], handedness: str) -> RecognitionResult:
+        """Original recognition rules."""
         finger_states = self.feature_extractor.get_finger_states(landmarks, handedness)
         distances = self.feature_extractor.get_distances(landmarks)
         
@@ -97,7 +111,6 @@ class RuleBasedRecognizer:
         
         # ===== 0 FINGERS (FIST) =====
         if finger_count == 0:
-            # Check for A, S, E, M, N, T
             thumb_tip = landmarks[self.feature_extractor.THUMB_TIP]
             thumb_mcp = landmarks[self.feature_extractor.THUMB_MCP]
             index_mcp = landmarks[self.feature_extractor.INDEX_MCP]
@@ -241,7 +254,12 @@ class HandSignDetector:
         self.custom_signs_path = os.path.join(os.path.dirname(__file__), "custom_signs.json")
         self.custom_signs = self._load_custom_signs()
         
-        print(f"OK: Enhanced Detector Ready! (Loaded {len(self.custom_signs)} custom signs)")
+        # System Signs (Rule-based)
+        self.system_signs_config = {}
+        self.DEFAULT_LABELS = ["C", "O", "S", "M", "N", "A", "L", "D", "I", "U", "V", "G", "K", "W", "B", "F", "Y", "R"]
+        self._load_system_signs_config()
+        
+        print(f"OK: Enhanced Detector Ready! (Loaded {len(self.custom_signs)} custom + {len(self.DEFAULT_LABELS)} system signs)")
     
     def _load_custom_signs(self):
         """Load custom signs from disk."""
@@ -330,7 +348,12 @@ class HandSignDetector:
         cv2.putText(frame, text, (x, y), font, scale, color, thickness)
     
     def build_sentence(self, current_letter):
-        """Build sentence with stability."""
+        """Build sentence with stability and cooldown support."""
+        # Handle negative cooldown
+        if self.letter_stable_counter < 0:
+            self.letter_stable_counter += 1
+            return
+
         if current_letter == "_":
             self.space_counter += 1
             if self.space_counter > self.stable_threshold / 2:
@@ -356,6 +379,17 @@ class HandSignDetector:
                         print(f"Added: {current_letter}")
                     self.letter_stable_counter = 0
     
+    def backspace(self):
+        """Safely remove the last character and prevent immediate re-detection."""
+        if self.current_sentence:
+            self.current_sentence = self.current_sentence[:-1]
+        
+        # Reset counters and add a short "blind" period (cooldown)
+        self.letter_stable_counter = -15  # Ignore next 15 frames (~500ms at 30fps)
+        self.last_letter = ""
+        self.space_counter = 0
+        return self.current_sentence
+    
     def process_frame(self, frame):
         """Process a single frame."""
         self._update_fps()
@@ -378,7 +412,7 @@ class HandSignDetector:
                 landmarks = [HandPoint(lm.x, lm.y, lm.z) for lm in hand_landmarks]
                 
                 # Recognize letter
-                result = self.recognizer.recognize(landmarks, handedness)
+                result = self.recognizer.recognize(landmarks, handedness, config=self.system_signs_config)
                 smoothed = self.smoother.smooth(result)
                 
                 # Build sentence if confident
@@ -407,7 +441,7 @@ class HandSignDetector:
         self._update_fps()
         
         # Recognize letter using rules first
-        result = self.recognizer.recognize(landmarks, handedness)
+        result = self.recognizer.recognize(landmarks, handedness, config=self.system_signs_config)
         
         # Check custom signs if rule-based recognition is weak
         if result.letter == "?" or result.confidence < 0.7:
@@ -454,6 +488,79 @@ class HandSignDetector:
         except Exception as e:
             print(f"Error learning sign: {e}")
             return False
+
+    def get_all_signs(self):
+        """Get all signs (system + custom) with metadata."""
+        all_signs = []
+        
+        # Default/System signs
+        for label in self.DEFAULT_LABELS:
+            config = self.system_signs_config.get(label, {})
+            current_label = config.get("rename", label)
+            disabled = config.get("disabled", False)
+            if not disabled:
+                all_signs.append({"id": label, "current": current_label, "type": "system"})
+        
+        # Custom signs
+        for label in self.custom_signs.keys():
+            all_signs.append({"id": label, "current": label, "type": "custom"})
+            
+        return all_signs
+
+    def remove_sign(self, identifier):
+        """Remove a custom sign or disable a system sign."""
+        # Check custom signs first
+        if identifier in self.custom_signs:
+            del self.custom_signs[identifier]
+            return self._save_custom_signs()
+            
+        # Check system signs
+        if identifier in self.DEFAULT_LABELS:
+            if identifier not in self.system_signs_config:
+                self.system_signs_config[identifier] = {}
+            self.system_signs_config[identifier]["disabled"] = True
+            return self._save_system_signs_config()
+            
+        return False
+
+    def rename_sign(self, identifier, new_label):
+        """Rename a custom sign or a system sign."""
+        if not new_label: return False
+        
+        # Custom sign renaming
+        if identifier in self.custom_signs:
+            # Check if new label already exists (optional safety)
+            self.custom_signs[new_label] = self.custom_signs.pop(identifier)
+            return self._save_custom_signs()
+            
+        # System sign renaming
+        if identifier in self.DEFAULT_LABELS:
+            if identifier not in self.system_signs_config:
+                self.system_signs_config[identifier] = {}
+            self.system_signs_config[identifier]["rename"] = new_label
+            return self._save_system_signs_config()
+            
+        return False
+
+    def _load_system_signs_config(self):
+        """Load system signs configuration."""
+        import json
+        path = os.path.join(os.path.dirname(__file__), "system_signs_config.json")
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    self.system_signs_config = json.load(f)
+            except: pass
+
+    def _save_system_signs_config(self):
+        """Save system signs configuration."""
+        import json
+        path = os.path.join(os.path.dirname(__file__), "system_signs_config.json")
+        try:
+            with open(path, "w") as f:
+                json.dump(self.system_signs_config, f, indent=4)
+            return True
+        except: return False
 
     def _recognize_custom(self, landmarks, handedness) -> Optional[RecognitionResult]:
         """Compare current landmarks against custom signs."""

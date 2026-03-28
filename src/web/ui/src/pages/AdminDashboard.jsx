@@ -1,0 +1,260 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Trash2, Edit2, Check, X, Save, Plus, Camera, Search, RefreshCw, Zap } from 'lucide-react';
+import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+
+const SOCKET_URL = 'http://localhost:8000';
+
+export default function AdminDashboard() {
+  const [signs, setSigns] = useState([]);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [newSignLabel, setNewSignLabel] = useState('');
+  const [trainingStatus, setTrainingStatus] = useState('');
+  const [editingSign, setEditingSign] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isMediaPipeReady, setIsMediaPipeReady] = useState(false);
+
+  const videoRef = useRef(null);
+  const landmarkerRef = useRef(null);
+  const latestLandmarksRef = useRef([]);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    fetchSigns();
+    initMediaPipe();
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, []);
+
+  const initMediaPipe = async () => {
+    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
+    landmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+        delegate: "CPU"
+      },
+      runningMode: "VIDEO", numHands: 1
+    });
+    setIsMediaPipeReady(true);
+  };
+
+  const fetchSigns = async () => {
+    try {
+      const res = await fetch(`${SOCKET_URL}/signs`);
+      const data = await res.json();
+      setSigns(data.signs || []);
+    } catch (err) { console.error(err); }
+  };
+
+  const captureFrame = useCallback(() => {
+    if (!isCapturing || !videoRef.current || !landmarkerRef.current) return;
+    const video = videoRef.current;
+    if (video.readyState >= 2) {
+      const results = landmarkerRef.current.detectForVideo(video, performance.now());
+      latestLandmarksRef.current = results.landmarks?.[0] || [];
+    }
+    rafRef.current = requestAnimationFrame(captureFrame);
+  }, [isCapturing]);
+
+  useEffect(() => {
+    if (isCapturing) rafRef.current = requestAnimationFrame(captureFrame);
+    else if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  }, [isCapturing, captureFrame]);
+
+  const toggleCamera = async () => {
+    if (isCapturing) {
+      setIsCapturing(false);
+      videoRef.current?.srcObject?.getTracks().forEach(t => t.stop());
+    } else {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      videoRef.current.srcObject = stream;
+      videoRef.current.play();
+      setIsCapturing(true);
+    }
+  };
+
+  const handleCreateSign = async () => {
+    if (!newSignLabel.trim()) return;
+    const lm = latestLandmarksRef.current;
+    if (!lm || lm.length === 0) { setTrainingStatus('No hand detected'); return; }
+    setTrainingStatus('Saving...');
+    try {
+      const res = await fetch(`${SOCKET_URL}/train`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: newSignLabel.trim().toUpperCase(), landmarks: lm, handedness: 'Right' })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setTrainingStatus('✓ Done');
+        setNewSignLabel('');
+        fetchSigns();
+        setTimeout(() => setTrainingStatus(''), 2000);
+      }
+    } catch { setTrainingStatus('Error'); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to remove/disable this sign?')) return;
+    try {
+      const res = await fetch(`${SOCKET_URL}/signs/${id}`, { method: 'DELETE' });
+      if ((await res.json()).status === 'success') fetchSigns();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleRename = async () => {
+    if (!editingSign?.new.trim()) return;
+    try {
+      const res = await fetch(`${SOCKET_URL}/signs/rename`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ old_label: editingSign.old, new_label: editingSign.new.trim().toUpperCase() })
+      });
+      if ((await res.json()).status === 'success') {
+        setEditingSign(null);
+        fetchSigns();
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  const filteredSigns = signs.filter(s => 
+    s.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    s.current.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="min-h-screen pt-24 pb-12 px-6">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* LEFT: Management Panel */}
+        <div className="lg:col-span-7 flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold font-display text-white">Sign Database</h1>
+            <button onClick={fetchSigns} className="p-2 text-white/20 hover:text-emerald-400 transition-colors">
+              <RefreshCw size={18} />
+            </button>
+          </div>
+
+          <div className="glass px-6 py-4 flex items-center gap-4 rounded-2xl border border-white/5">
+            <Search className="text-white/20" size={20} />
+            <input 
+              type="text"
+              placeholder="Filter signs by ID or current label..."
+              className="bg-transparent border-none outline-none text-white w-full font-sans text-sm"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-3 custom-scroll">
+            <AnimatePresence>
+              {filteredSigns.map((sign) => (
+                <motion.div 
+                  key={sign.id} 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="glass p-5 rounded-2xl border border-white/5 flex items-center justify-between group hover:bg-white/5 transition-colors"
+                >
+                  <div className="flex items-center gap-6">
+                    <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center font-bold text-xl text-white">
+                      {sign.current[0]}
+                    </div>
+                    {editingSign?.old === sign.id ? (
+                      <div className="flex items-center gap-2">
+                        <input 
+                          autoFocus
+                          className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-white outline-none font-mono text-sm"
+                          value={editingSign.new}
+                          onChange={e => setEditingSign({...editingSign, new: e.target.value})}
+                          onKeyDown={e => e.key === 'Enter' && handleRename()}
+                        />
+                        <button onClick={handleRename} className="text-emerald-400 p-1.5 hover:bg-emerald-400/10 rounded-md">
+                          <Check size={18} />
+                        </button>
+                        <button onClick={() => setEditingSign(null)} className="text-white/30 p-1.5">
+                          <X size={18} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-lg text-white font-display uppercase tracking-wide">{sign.current}</span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase tracking-tighter ${sign.type === 'system' ? 'bg-violet-500/20 text-violet-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                            {sign.type}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-white/20 font-mono">ID: {sign.id}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => setEditingSign({ old: sign.id, new: sign.current })}
+                      className="p-2 text-white/20 hover:text-cyan-400 transition-colors"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(sign.id)}
+                      className="p-2 text-white/20 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* RIGHT: Add New Sign */}
+        <div className="lg:col-span-5 flex flex-col gap-6">
+          <div className="glass-strong p-8 rounded-[2.5rem] border border-white/10 shadow-2xl flex flex-col gap-6 sticky top-24">
+            <h2 className="text-2xl font-bold font-display text-white">Train New Pattern</h2>
+            
+            <div className="relative aspect-square rounded-3xl overflow-hidden bg-black/40 border border-white/5">
+              <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover grayscale-[0.5]" />
+              {!isCapturing && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm">
+                  <Camera className="text-white/20" size={48} />
+                  <button onClick={toggleCamera} className="px-6 py-2 bg-white text-black text-sm font-bold rounded-xl active:scale-95 cursor-pointer">
+                    Enable Viewport
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] uppercase tracking-widest font-bold text-white/30 ml-1">Sign Label</label>
+              <div className="flex gap-2">
+                <input 
+                  type="text"
+                  placeholder="e.g. PEACE..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none focus:border-emerald-500/50 transition-all font-mono"
+                  value={newSignLabel}
+                  onChange={e => setNewSignLabel(e.target.value)}
+                />
+                <button 
+                  onClick={handleCreateSign}
+                  disabled={!isCapturing || !newSignLabel.trim()}
+                  className="px-6 rounded-2xl bg-emerald-500 text-black font-bold hover:bg-emerald-400 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer shadow-[0_0_20px_#10b98133]"
+                >
+                  <Plus size={24} />
+                </button>
+              </div>
+              {trainingStatus && (
+                <div className="mt-2 text-xs text-emerald-400 font-mono flex items-center gap-2">
+                  <Zap size={10} className="animate-pulse" /> {trainingStatus}
+                </div>
+              )}
+            </div>
+
+            <p className="text-[10px] text-white/20 leading-relaxed font-sans mt-2">
+              Position your hand clearly in the viewport and hold the gesture steady before clicking the plus button to capture.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
