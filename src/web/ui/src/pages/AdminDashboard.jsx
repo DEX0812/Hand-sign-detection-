@@ -91,9 +91,12 @@ export default function AdminDashboard() {
     if (!lm || lm.length === 0) { setTrainingStatus('No hand detected'); return; }
     setTrainingStatus('Saving...');
     try {
-      const res = await fetch(`${SOCKET_URL}/train`, {
+      const res = await fetch(`${SOCKET_URL}/train/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({ label: newSignLabel.trim().toUpperCase(), landmarks: lm, handedness: 'Right' })
       });
       const data = await res.json();

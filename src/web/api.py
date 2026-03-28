@@ -90,6 +90,7 @@ async def landmarks_data(sid, data):
         import traceback
         traceback.print_exc()
 
+@app.post("/train/")
 @app.post("/train")
 async def train_sign(data: dict):
     """Learn a new sign pattern."""
