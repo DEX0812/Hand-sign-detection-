@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, Edit2, Check, X, Save, Plus, Camera, Search, RefreshCw, Zap } from 'lucide-react';
 import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import { useMouseParallax } from '../hooks/useMouseParallax';
 
 const SOCKET_URL = 'http://localhost:8000';
 
 export default function AdminDashboard() {
+  const { rotateX, rotateY, onMouseMove, onMouseLeave } = useMouseParallax(8);
   const [signs, setSigns] = useState([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [newSignLabel, setNewSignLabel] = useState('');
@@ -123,10 +125,10 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen pt-24 pb-12 px-6">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12" style={{ gap: 'calc(var(--space-base) * 2)' }}>
         
         {/* LEFT: Management Panel */}
-        <div className="lg:col-span-7 flex flex-col gap-6">
+        <div className="lg:col-span-7 flex flex-col" style={{ gap: 'calc(var(--space-base) * 1.5)' }}>
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold font-display text-white">Sign Database</h1>
             <button onClick={fetchSigns} className="p-2 text-white/20 hover:text-emerald-400 transition-colors">
@@ -134,7 +136,7 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          <div className="glass px-6 py-4 flex items-center gap-4 rounded-2xl border border-white/5">
+          <div className="glass px-6 py-4 flex items-center rounded-2xl border border-white/5 antigravity-lift" style={{ gap: 'var(--space-base)' }}>
             <Search className="text-white/20" size={20} />
             <input 
               type="text"
@@ -145,16 +147,13 @@ export default function AdminDashboard() {
             />
           </div>
 
-          <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-3 custom-scroll">
+          <div className="flex flex-col max-h-[60vh] overflow-y-auto pr-3 custom-scroll" style={{ gap: 'var(--space-base)' }}>
             <AnimatePresence>
               {filteredSigns.map((sign) => (
                 <motion.div 
-                  key={sign.id} 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="glass p-5 rounded-2xl border border-white/5 flex items-center justify-between group hover:bg-white/5 transition-colors"
+                  className="glass p-5 rounded-2xl border border-white/5 flex items-center justify-between group hover:bg-white/5 transition-colors antigravity-lift"
                 >
-                  <div className="flex items-center gap-6">
+                  <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
                     <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center font-bold text-xl text-white">
                       {sign.current[0]}
                     </div>
@@ -208,25 +207,34 @@ export default function AdminDashboard() {
         </div>
 
         {/* RIGHT: Add New Sign */}
-        <div className="lg:col-span-5 flex flex-col gap-6">
-          <div className="glass-strong p-8 rounded-[2.5rem] border border-white/10 shadow-2xl flex flex-col gap-6 sticky top-24">
+        <div className="lg:col-span-5 flex flex-col" style={{ gap: 'calc(var(--space-base) * 1.5)' }}>
+          <div 
+            className="glass-strong p-8 rounded-[2.5rem] border border-white/10 shadow-2xl flex flex-col sticky top-24 antigravity-lift"
+            style={{ gap: 'calc(var(--space-base) * 1.5)' }}
+          >
             <h2 className="text-2xl font-bold font-display text-white">Train New Pattern</h2>
             
-            <div className="relative aspect-square rounded-3xl overflow-hidden bg-black/40 border border-white/5">
-              <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover grayscale-[0.5]" />
-              {!isCapturing && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm">
-                  <Camera className="text-white/20" size={48} />
-                  <button onClick={toggleCamera} className="px-6 py-2 bg-white text-black text-sm font-bold rounded-xl active:scale-95 cursor-pointer">
-                    Enable Viewport
-                  </button>
-                </div>
-              )}
+            <div 
+              className="relative aspect-square rounded-3xl overflow-hidden bg-black/40 border border-white/5 perspective-2000"
+              onMouseMove={onMouseMove}
+              onMouseLeave={onMouseLeave}
+            >
+              <motion.div style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }} className="w-full h-full">
+                <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover grayscale-[0.5]" />
+                {!isCapturing && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm">
+                    <Camera className="text-white/20" size={48} />
+                    <button onClick={toggleCamera} className="px-6 py-2 bg-white text-black text-sm font-bold rounded-xl active:scale-95 cursor-pointer antigravity-lift">
+                      Enable Viewport
+                    </button>
+                  </div>
+                )}
+              </motion.div>
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col" style={{ gap: 'calc(var(--space-base) * 0.5)' }}>
               <label className="text-[10px] uppercase tracking-widest font-bold text-white/30 ml-1">Sign Label</label>
-              <div className="flex gap-2">
+              <div className="flex" style={{ gap: 'var(--space-base)' }}>
                 <input 
                   type="text"
                   placeholder="e.g. PEACE..."
@@ -237,16 +245,14 @@ export default function AdminDashboard() {
                 <button 
                   onClick={handleCreateSign}
                   disabled={!isCapturing || !newSignLabel.trim()}
-                  className="px-6 rounded-2xl bg-emerald-500 text-black font-bold hover:bg-emerald-400 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer shadow-[0_0_20px_#10b98133]"
+                  className="px-6 rounded-2xl bg-emerald-500 text-black font-bold hover:bg-emerald-400 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer shadow-[0_0_20px_#10b98133] antigravity-lift"
                 >
                   <Plus size={24} />
                 </button>
               </div>
-              {trainingStatus && (
-                <div className="mt-2 text-xs text-emerald-400 font-mono flex items-center gap-2">
+                <div className="mt-4 text-xs text-emerald-400 font-mono flex items-center gap-3">
                   <Zap size={10} className="animate-pulse" /> {trainingStatus}
                 </div>
-              )}
             </div>
 
             <p className="text-[10px] text-white/20 leading-relaxed font-sans mt-2">

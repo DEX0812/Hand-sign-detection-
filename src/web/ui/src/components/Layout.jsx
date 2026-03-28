@@ -1,13 +1,22 @@
 import React from 'react';
 import Navigation from './Navigation';
 import ThreeBackground from '../ThreeBackground';
+import CyberpunkEffects from './CyberpunkEffects';
 
 export default function Layout({ children }) {
   return (
     <div className="relative min-h-screen w-full bg-[#030712] overflow-x-hidden">
+      <CyberpunkEffects />
       {/* Dynamic Three.js Background */}
       <div className="fixed inset-0 z-0 pointer-events-none opacity-40">
         <ThreeBackground />
+      </div>
+
+      {/* Antigravity Decorative Blobs */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="antigravity-blob blob-1" />
+        <div className="antigravity-blob blob-2" />
+        <div className="antigravity-blob blob-3" />
       </div>
 
       {/* Glossy Overlay */}
@@ -15,6 +24,10 @@ export default function Layout({ children }) {
 
       {/* Main Navigation */}
       <Navigation />
+
+      {/* CRT Scanline Effects */}
+      <div className="crt-overlay" />
+      <div className="scanline" />
 
       {/* Content Area */}
       <main className="relative z-10 w-full">

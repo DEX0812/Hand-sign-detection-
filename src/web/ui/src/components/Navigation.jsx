@@ -26,13 +26,13 @@ export default function Navigation() {
       <div className="max-w-7xl w-full flex justify-between items-center bg-black/20 backdrop-blur-2xl border border-white/5 px-8 py-4 rounded-2xl pointer-events-auto shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
         
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] flex items-center justify-center text-black font-bold text-lg group-hover:scale-110 transition-transform">
+        <Link to="/" className="flex items-center gap-4 group">
+          <div className="w-9 h-9 rounded-xl bg-white shadow-[0_0_20px_rgba(255,255,255,0.3)] flex items-center justify-center text-black font-bold text-lg group-hover:scale-110 transition-transform">
             V
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-bold tracking-[0.2em] text-white/90 font-display leading-tight">SIGN<span className="text-emerald-400">VISION</span></span>
-            <span className="text-[7px] font-mono tracking-[0.4em] text-white/30 font-bold uppercase">Neural Core v4.0</span>
+            <span className="text-sm font-bold tracking-[0.2em] text-white/90 font-display leading-tight uppercase">SIGN<span className="text-white">VISION</span></span>
+            <span className="text-[7px] font-mono tracking-[0.4em] text-white/30 font-bold uppercase">Event Horizon v1.0</span>
           </div>
         </Link>
 
@@ -47,7 +47,7 @@ export default function Navigation() {
                    setTimeout(() => document.getElementById(link.path.substring(1))?.scrollIntoView({behavior: 'smooth'}), 100);
                 }
               }}
-              className={`text-[10px] font-bold tracking-[0.2em] transition-all hover:text-emerald-400 ${location.pathname === link.path ? 'text-emerald-400' : 'text-white/40'}`}
+              className={`text-[10px] font-bold tracking-[0.2em] transition-all hover:text-white ${location.pathname === link.path ? 'text-white' : 'text-white/40'}`}
             >
               {link.name}
             </Link>
@@ -57,7 +57,7 @@ export default function Navigation() {
 
           {isAdmin ? (
             <div className="flex items-center gap-4">
-              <Link to="/admin" className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-bold tracking-widest hover:bg-emerald-500/20 transition-all">
+              <Link to="/admin" className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/20 text-white rounded-lg text-[10px] font-bold tracking-widest hover:bg-white/10 transition-all">
                 <LayoutDashboard size={12} /> DASHBOARD
               </Link>
               <button onClick={handleLogout} className="p-2 text-white/40 hover:text-red-400 transition-colors cursor-pointer">
@@ -66,7 +66,7 @@ export default function Navigation() {
             </div>
           ) : (
             <Link to="/login" className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] text-white/40 hover:text-white transition-all group">
-              <User size={14} className="group-hover:text-emerald-400" /> LOGIN
+              <User size={14} className="group-hover:text-white" /> LOGIN
             </Link>
           )}
         </div>
@@ -96,7 +96,7 @@ export default function Navigation() {
                 onClick={() => setIsOpen(false)}
                 className="text-lg font-bold font-display text-white tracking-widest flex justify-between items-center group"
               >
-                {link.name} <ChevronRight size={18} className="text-white/20 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
+                {link.name} <ChevronRight size={18} className="text-white/20 group-hover:text-white group-hover:translate-x-1 transition-all" />
               </Link>
             ))}
             <div className="h-px w-full bg-white/5" />
@@ -105,7 +105,7 @@ export default function Navigation() {
                 <LogOut size={18} /> LOGOUT
               </button>
             ) : (
-              <Link to="/login" onClick={() => setIsOpen(false)} className="text-emerald-400 font-bold tracking-widest flex items-center gap-2">
+              <Link to="/login" onClick={() => setIsOpen(false)} className="text-white font-bold tracking-widest flex items-center gap-2">
                 <User size={18} /> LOGIN
               </Link>
             )}

@@ -1,10 +1,11 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, Square, Copy, Zap, Activity, Trash2, Delete, Type } from 'lucide-react';
 import io from 'socket.io-client';
 import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import { useMouseParallax } from '../hooks/useMouseParallax';
 
-const SOCKET_URL = 'http://127.0.0.1:8000';
+const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 const HAND_CONNECTIONS = [
   [0,1],[1,2],[2,3],[3,4], [0,5],[5,6],[6,7],[7,8], [0,9],[9,10],[10,11],[11,12],
   [0,13],[13,14],[14,15],[15,16], [0,17],[17,18],[18,19],[19,20], [5,9],[9,13],[13,17]
@@ -16,7 +17,7 @@ function FloatingPanel({ children, className = '', delay = 0 }) {
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay, type: 'spring', stiffness: 100 }}
-      className={className}
+      className={`antigravity-lift ${className}`}
     >
       {children}
     </motion.div>
@@ -25,9 +26,9 @@ function FloatingPanel({ children, className = '', delay = 0 }) {
 
 function GlowButton({ children, onClick, variant = 'primary', className = '', disabled = false }) {
   const variants = {
-    primary: 'bg-emerald-500 text-black hover:bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)]',
+    primary: 'bg-white text-black hover:bg-zinc-200 shadow-[0_0_20px_rgba(255,255,255,0.2)]',
     ghost: 'bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80',
-    danger: 'bg-red-500/20 border border-red-400/40 text-red-200 hover:bg-red-500/30',
+    danger: 'bg-zinc-800 border border-white/20 text-white hover:bg-zinc-700',
   };
   return (
     <motion.button
@@ -35,7 +36,7 @@ function GlowButton({ children, onClick, variant = 'primary', className = '', di
       disabled={disabled}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
-      className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold transition-all cursor-pointer ${variants[variant]} ${disabled ? 'opacity-40 pointer-events-none' : ''} ${className}`}
+      className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold transition-all cursor-pointer antigravity-lift ${variants[variant]} ${disabled ? 'opacity-40 pointer-events-none' : ''} ${className}`}
     >
       {children}
     </motion.button>
@@ -43,6 +44,7 @@ function GlowButton({ children, onClick, variant = 'primary', className = '', di
 }
 
 export default function DetectorPage() {
+  const { rotateX, rotateY, onMouseMove, onMouseLeave } = useMouseParallax(6);
   const [isCapturing, setIsCapturing] = useState(false);
   const [recognition, setRecognition] = useState({ letter: '?', sentence: '', confidence: 0, fps: 0 });
   const [isMediaPipeReady, setIsMediaPipeReady] = useState(false);
@@ -100,8 +102,8 @@ export default function DetectorPage() {
       const landmarks = results.landmarks?.[0] || [];
 
       if (landmarks.length > 0) {
-        // Draw skeleton
-        ctx.strokeStyle = '#8b5cf6'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        // Draw skeleton (Cosmic Spec)
+        ctx.strokeStyle = 'rgba(0, 255, 230, 0.8)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
         HAND_CONNECTIONS.forEach(([s, e]) => {
           const p1 = landmarks[s], p2 = landmarks[e];
           if (p1 && p2) {
@@ -112,7 +114,7 @@ export default function DetectorPage() {
           }
         });
         landmarks.forEach(lm => {
-          ctx.fillStyle = '#10b981'; ctx.beginPath();
+          ctx.fillStyle = '#ffffff'; ctx.beginPath();
           ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 3, 0, Math.PI*2); ctx.fill();
         });
 
@@ -154,77 +156,89 @@ export default function DetectorPage() {
 
   return (
     <div className="min-h-screen pt-24 px-6 flex flex-col items-center">
-      <div className="max-w-4xl w-full flex flex-col gap-6">
+      <div className="max-w-4xl w-full flex flex-col" style={{ gap: 'calc(var(--space-base) * 2)' }}>
         {/* Header Info */}
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
+        <div className="flex items-center justify-between" style={{ gap: 'var(--space-base)' }}>
+          <div className="flex flex-col" style={{ gap: '2px' }}>
             <h1 className="text-2xl font-bold font-display text-white">Live Detection</h1>
             <p className="text-xs text-white/30 font-mono">Neural Uplink: {recognition.fps} FPS</p>
           </div>
           {!isMediaPipeReady && (
-            <div className="flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold uppercase tracking-wider rounded-lg">
-              <Zap size={10} className="animate-pulse" /> Loading Vision Core...
+            <div 
+              className="flex items-center bg-white/5 border border-white/10 text-white/60 text-[10px] font-bold uppercase tracking-wider rounded-lg"
+              style={{ gap: 'calc(var(--space-base) * 0.5)', padding: 'calc(var(--space-base) * 0.5) var(--space-base)' }}
+            >
+              <Zap size={10} className="animate-pulse" /> Calibrating Void Sensors...
             </div>
           )}
         </div>
 
         {/* Viewport */}
-        <div className="relative aspect-video bg-black/40 backdrop-blur-3xl rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl">
-          <video ref={videoRef} className="absolute opacity-0" />
-          <canvas ref={canvasRef} className="w-full h-full object-cover" />
-          
-          <AnimatePresence>
-            {!isCapturing && (
-              <motion.div 
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm gap-6"
-              >
-                <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
-                  <Camera size={40} />
-                </div>
-                <button 
-                  onClick={toggleCamera}
-                  className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-2xl transition-all shadow-[0_0_20px_#10b98144] cursor-pointer"
+        <div 
+          className="relative aspect-video bg-black/40 backdrop-blur-3xl rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl perspective-2000"
+          onMouseMove={onMouseMove}
+          onMouseLeave={onMouseLeave}
+        >
+          <motion.div 
+            style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
+            className="w-full h-full"
+          >
+            <video ref={videoRef} className="absolute opacity-0" />
+            <canvas ref={canvasRef} className="w-full h-full object-cover" />
+            
+            <AnimatePresence>
+              {!isCapturing && (
+                <motion.div 
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md gap-6"
                 >
-                  Start Neural Stream
-                </button>
+                  <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center text-white border border-white/10 shadow-[0_0_30px_rgba(255,255,255,0.1)]">
+                    <Camera size={40} />
+                  </div>
+                  <button 
+                    onClick={toggleCamera}
+                    className="px-8 py-4 bg-white hover:bg-zinc-200 text-black font-bold rounded-2xl transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] cursor-pointer antigravity-lift"
+                  >
+                    Initiate Zero-G Stream
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+  
+            {/* Recognition Pill */}
+            {isCapturing && recognition.letter !== '?' && (
+              <motion.div 
+                key={recognition.letter}
+                initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="absolute bottom-8 right-8 w-20 h-20 glass flex items-center justify-center rounded-3xl border border-white/20 shadow-2xl antigravity-lift"
+              >
+                <span className="text-4xl font-bold text-white font-display glow-text">
+                  {recognition.letter === '_' ? '·' : recognition.letter}
+                </span>
               </motion.div>
             )}
-          </AnimatePresence>
-
-          {/* Recognition Pill */}
-          {isCapturing && recognition.letter !== '?' && (
-            <motion.div 
-              key={recognition.letter}
-              initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              className="absolute bottom-8 right-8 w-20 h-20 glass flex items-center justify-center rounded-3xl border border-white/20 shadow-2xl"
-            >
-              <span className="text-4xl font-bold text-white font-display glow-text">
-                {recognition.letter === '_' ? '·' : recognition.letter}
-              </span>
-            </motion.div>
-          )}
+          </motion.div>
         </div>
 
         {/* Output Docks */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <FloatingPanel className="md:col-span-3 glass p-8 rounded-3xl flex flex-col gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-4" style={{ gap: 'var(--space-base)' }}>
+          <FloatingPanel className="md:col-span-3 glass p-8 rounded-3xl flex flex-col" style={{ gap: 'calc(var(--space-base) * 0.5)' }}>
             <span className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em] font-display">Translated Sentence</span>
             <div className="text-2xl font-mono text-white min-h-[1.5em] flex items-center tracking-tight">
               {recognition.sentence || <span className="text-white/10 italic font-sans text-sm">Waiting for gestures...</span>}
             </div>
           </FloatingPanel>
 
-          <FloatingPanel delay={0.1} className="glass p-6 rounded-3xl flex flex-col gap-2 justify-center items-center">
+          <FloatingPanel delay={0.1} className="glass p-6 rounded-3xl flex flex-col justify-center items-center" style={{ gap: 'calc(var(--space-base) * 0.5)' }}>
             <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest font-display">Confidence</span>
-            <div className="text-3xl font-bold font-display text-emerald-400">
+            <div className="text-3xl font-bold font-display text-white">
               {Math.round(recognition.confidence * 100)}%
             </div>
           </FloatingPanel>
         </div>
 
         {/* Controls */}
-        <div className="flex flex-wrap justify-center gap-6 mt-4">
+        <div className="flex flex-wrap justify-center mt-4" style={{ gap: 'var(--space-base)' }}>
           <GlowButton onClick={toggleCamera} variant={isCapturing ? 'danger' : 'primary'} className="min-w-[180px]">
             {isCapturing ? <><Square size={20} /> Stop Stream</> : <><Camera size={20} /> Start Stream</>}
           </GlowButton>

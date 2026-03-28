@@ -42,15 +42,19 @@ export default function LoginPage() {
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-md"
       >
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mx-auto mb-4">
+        <div className="text-center" style={{ marginBottom: 'calc(var(--space-base) * 3)' }}>
+          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mx-auto" style={{ marginBottom: 'calc(var(--space-base) * 1.5)' }}>
             <ShieldCheck size={32} />
           </div>
-          <h1 className="text-3xl font-bold font-display text-white mb-2">Admin Terminal</h1>
+          <h1 className="text-3xl font-bold font-display text-white" style={{ marginBottom: 'calc(var(--space-base) * 0.5)' }}>Admin Terminal</h1>
           <p className="text-white/40 text-sm">Secure authorization required for dashboard access.</p>
         </div>
 
-        <form onSubmit={handleLogin} className="glass-strong p-8 rounded-4xl border border-white/10 shadow-2xl flex flex-col gap-5">
+        <form 
+          onSubmit={handleLogin} 
+          className="glass-strong p-8 rounded-4xl border border-white/10 shadow-2xl flex flex-col"
+          style={{ gap: 'calc(var(--space-base) * 1.5)' }}
+        >
           {error && (
             <motion.div 
               initial={{ opacity: 0, x: -10 }}
@@ -62,7 +66,7 @@ export default function LoginPage() {
             </motion.div>
           )}
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col" style={{ gap: 'calc(var(--space-base) * 0.5)' }}>
             <label className="text-[10px] uppercase tracking-widest font-bold text-white/30 ml-1">Username</label>
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20">
@@ -80,7 +84,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col" style={{ gap: 'calc(var(--space-base) * 0.5)' }}>
             <label className="text-[10px] uppercase tracking-widest font-bold text-white/30 ml-1">Password</label>
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20">
@@ -100,9 +104,10 @@ export default function LoginPage() {
           <button 
             type="submit"
             disabled={isLoading}
-            className={`mt-2 w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
+            className={`w-full py-4 rounded-2xl font-bold transition-all antigravity-lift ${
               isLoading ? 'bg-white/10 text-white/20 cursor-not-allowed' : 'bg-white text-black hover:bg-emerald-400 active:scale-95 cursor-pointer'
             }`}
+            style={{ marginTop: 'calc(var(--space-base) * 1)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'calc(var(--space-base) * 0.5)' }}
           >
             {isLoading ? 'Authenticating...' : (
               <>

@@ -34,7 +34,7 @@ export default function Footer() {
         {/* Navigation Column */}
         <div className="flex flex-col gap-6">
           <h4 className="text-[10px] uppercase tracking-widest font-bold text-emerald-400">Application</h4>
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-4">
             <li><Link to="/" className="text-sm text-white/40 hover:text-white transition-colors">Home Landing</Link></li>
             <li><Link to="/detector" className="text-sm text-white/40 hover:text-white transition-colors">Live Recognition</Link></li>
             <li><Link to="/login" className="text-sm text-white/40 hover:text-white transition-colors">Admin Dashboard</Link></li>
@@ -45,11 +45,11 @@ export default function Footer() {
         {/* Features Column */}
         <div className="flex flex-col gap-6">
           <h4 className="text-[10px] uppercase tracking-widest font-bold text-emerald-400">Technology</h4>
-          <ul className="flex flex-col gap-3 text-sm text-white/40">
-            <li className="flex items-center gap-2 hover:text-white transition-colors"><Shield size={12} /> Privacy First Processing</li>
-            <li className="flex items-center gap-2 hover:text-white transition-colors">Neural Geometric Analysis</li>
-            <li className="flex items-center gap-2 hover:text-white transition-colors">Multi-Hand Support (BETA)</li>
-            <li className="flex items-center gap-2 hover:text-white transition-colors">Custom Dataset Training</li>
+          <ul className="flex flex-col gap-4 text-sm text-white/40">
+            <li className="flex items-center gap-3 hover:text-white transition-colors"><Shield size={12} /> Privacy First Processing</li>
+            <li className="flex items-center gap-3 hover:text-white transition-colors">Neural Geometric Analysis</li>
+            <li className="flex items-center gap-3 hover:text-white transition-colors">Multi-Hand Support (BETA)</li>
+            <li className="flex items-center gap-3 hover:text-white transition-colors">Custom Dataset Training</li>
           </ul>
         </div>
 
