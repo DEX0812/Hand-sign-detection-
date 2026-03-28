@@ -57,7 +57,6 @@ export default function DetectorPage() {
   const isProcessingRef = useRef(false);
   const frameCountRef = useRef(0);
   const lastEmitTimeRef = useRef(0);
-  const lastLandmarksRef = useRef([]);
 
   useEffect(() => {
     const init = async () => {
@@ -112,7 +111,6 @@ export default function DetectorPage() {
       if (frameCountRef.current % 3 === 0) {
         const results = landmarkerRef.current.detectForVideo(video, performance.now());
         const landmarks = results.landmarks?.[0] || [];
-        lastLandmarksRef.current = landmarks;
 
         if (landmarks && landmarks.length > 0) {
           // Draw skeleton (Cosmic Spec)
@@ -144,29 +142,6 @@ export default function DetectorPage() {
     if (isCapturing) rafRef.current = requestAnimationFrame(captureFrame);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [isCapturing, captureFrame]);
-
-  const handleTrain = async () => {
-    const label = prompt("Neural Signature Label (e.g., A, B, HELLO):");
-    if (!label) return;
-    
-    const landmarks = lastLandmarksRef.current;
-    if (!landmarks || landmarks.length === 0) {
-      alert("No Hand Detected! Please place your hand in the sensor field.");
-      return;
-    }
-
-    try {
-      const resp = await fetch(`${SOCKET_URL}/train`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label, landmarks, handedness: 'Right' })
-      });
-      if (resp.ok) alert(`Neural Pattern '${label}' Learned Successfully!`);
-      else alert("Backend Uplink Failed. Verify Render is awake.");
-    } catch (e) {
-      console.error("Training error:", e);
-    }
-  };
 
   const toggleCamera = async () => {
     if (isCapturing) {
@@ -270,11 +245,8 @@ export default function DetectorPage() {
 
         {/* Controls */}
         <div className="flex flex-wrap justify-center mt-4" style={{ gap: 'var(--space-base)' }}>
-          <GlowButton onClick={toggleCamera} variant={isCapturing ? 'danger' : 'primary'} className="min-w-[150px]">
+          <GlowButton onClick={toggleCamera} variant={isCapturing ? 'danger' : 'primary'} className="min-w-[180px]">
             {isCapturing ? <><Square size={20} /> Stop Stream</> : <><Camera size={20} /> Start Stream</>}
-          </GlowButton>
-          <GlowButton onClick={handleTrain} variant="primary" className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-            <Zap size={20} /> Learn Sign
           </GlowButton>
           <GlowButton onClick={() => fetch(`${SOCKET_URL}/backspace`, { method: 'POST' }).catch(e => console.error("Backspace error:", e))} variant="ghost">
             <Delete size={20} /> Backspace
