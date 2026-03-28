@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, Square, Copy, Zap, Activity, Trash2, Delete, Type } from 'lucide-react';
 import io from 'socket.io-client';
-import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+// MediaPipe is now handled in public/mediapipe-worker.js
 import { useMouseParallax } from '../hooks/useMouseParallax';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
@@ -52,27 +52,37 @@ export default function DetectorPage() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const socketRef = useRef(null);
-  const landmarkerRef = useRef(null);
+  const workerRef = useRef(null);
   const rafRef = useRef(null);
   const isProcessingRef = useRef(false);
   const frameCountRef = useRef(0);
   const lastEmitTimeRef = useRef(0);
+  const lastLandmarksRef = useRef([]);
 
   useEffect(() => {
-    const init = async () => {
-      const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
-      landmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-          delegate: "CPU"
-        },
-        runningMode: "VIDEO", numHands: 1
-      });
-      setIsMediaPipeReady(true);
+    // 1. Initialize High-Performance Web Worker
+    workerRef.current = new Worker('/mediapipe-worker.js');
+    
+    workerRef.current.onmessage = (e) => {
+      const { type, landmarks, message } = e.data;
+      if (type === 'ready') setIsMediaPipeReady(true);
+      if (type === 'result') {
+        lastLandmarksRef.current = landmarks || [];
+        
+        // Parallel Pipelining: Throttled Socket Emission
+        const now = performance.now();
+        if (landmarks?.length > 0 && socketRef.current?.connected && !isProcessingRef.current && (now - lastEmitTimeRef.current > 100)) {
+          socketRef.current.emit('landmarks_data', { landmarks, handedness: 'Unknown' });
+          isProcessingRef.current = true;
+          lastEmitTimeRef.current = now;
+        }
+      }
+      if (type === 'error') console.error("Worker Error:", message);
     };
-    init();
 
+    // 2. Socket.io Init
     socketRef.current = io(SOCKET_URL);
+    
     socketRef.current.on('recognition_result', (data) => {
       setRecognition(prev => ({
         ...data,
@@ -83,57 +93,49 @@ export default function DetectorPage() {
 
     return () => {
       socketRef.current?.close();
+      workerRef.current?.terminate();
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
-  const captureFrame = useCallback(() => {
-    if (!isCapturing || !landmarkerRef.current || !videoRef.current || !canvasRef.current) return;
+  const captureFrame = useCallback(async () => {
+    if (!isCapturing || !videoRef.current || !canvasRef.current || !workerRef.current) return;
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
     if (video.readyState >= 2) {
       const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+      ctx.restore();
+
+      // 1. Offload AI to Worker using zero-copy ImageBitmap
       frameCountRef.current++;
-      
-      // Zero-Lag: Only detect every 3rd frame (~20 FPS)
       if (frameCountRef.current % 3 === 0) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.save();
-        ctx.scale(-1, 1);
-        ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+        createImageBitmap(video).then(bitmap => {
+          workerRef.current.postMessage({
+            frame: bitmap,
+            timestamp: performance.now()
+          }, [bitmap]);
+        });
+      }
 
-        const results = landmarkerRef.current.detectForVideo(video, performance.now());
-        const landmarks = results.landmarks?.[0] || [];
-
-        if (landmarks.length > 0) {
-          // Draw skeleton (Cosmic Spec)
-          ctx.strokeStyle = 'rgba(0, 255, 230, 0.8)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-          HAND_CONNECTIONS.forEach(([s, e]) => {
-            const p1 = landmarks[s], p2 = landmarks[e];
-            if (p1 && p2) {
-              ctx.beginPath();
-              ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
-              ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
-              ctx.stroke();
-            }
-          });
-
-          // Throttled Socket Emission (Min 100ms)
-          const now = performance.now();
-          if (socketRef.current?.connected && !isProcessingRef.current && (now - lastEmitTimeRef.current > 100)) {
-            socketRef.current.emit('landmarks_data', { landmarks, handedness: 'Unknown' });
-            isProcessingRef.current = true;
-            lastEmitTimeRef.current = now;
-            
-            // Watchdog: reset processing flag if no response within 1 second
-            setTimeout(() => {
-              isProcessingRef.current = false;
-            }, 1000);
+      // 2. Dynamic Skeleton Rendering (No-Freeze)
+      const landmarks = lastLandmarksRef.current;
+      if (landmarks && landmarks.length > 0) {
+        ctx.strokeStyle = 'rgba(0, 255, 230, 0.8)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        HAND_CONNECTIONS.forEach(([s, e]) => {
+          const p1 = landmarks[s], p2 = landmarks[e];
+          if (p1 && p2) {
+            ctx.beginPath();
+            ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
+            ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+            ctx.stroke();
           }
-        }
-        ctx.restore();
+        });
       }
     }
     rafRef.current = requestAnimationFrame(captureFrame);
