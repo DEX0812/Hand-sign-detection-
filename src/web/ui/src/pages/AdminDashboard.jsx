@@ -44,7 +44,7 @@ export default function AdminDashboard() {
           modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
           delegate: "GPU"
         },
-        runningMode: "VIDEO", numHands: 1
+        runningMode: "VIDEO", numHands: 2
       });
       setIsMediaPipeReady(true);
     } catch (err) {
@@ -64,15 +64,35 @@ export default function AdminDashboard() {
     if (!isCapturing || !videoRef.current || !landmarkerRef.current) return;
     const video = videoRef.current;
     
-    if (video.readyState >= 2) {
-      frameCountRef.current++;
-      
-      // Throttled Admin Viewport (20 FPS)
-      if (frameCountRef.current % 3 === 0) {
-        const results = landmarkerRef.current.detectForVideo(video, performance.now());
-        latestLandmarksRef.current = results.landmarks?.[0] || [];
+      if (video.readyState >= 2) {
+        frameCountRef.current++;
+        
+        // Throttled Admin Viewport (20 FPS)
+        if (frameCountRef.current % 3 === 0) {
+          const results = landmarkerRef.current.detectForVideo(video, performance.now());
+          latestLandmarksRef.current = results.landmarks?.[0] || [];
+          
+          // Draw Skeleton Feedback in Admin View - Fixed Coordinate Mirroring
+          const canvas = canvasRef.current;
+          if (canvas && results.landmarks) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            results.landmarks.forEach((landmarks, index) => {
+              ctx.strokeStyle = index === 0 ? 'rgba(0, 255, 230, 0.8)' : 'rgba(255, 0, 230, 0.8)';
+              ctx.lineWidth = 3; ctx.lineCap = 'round';
+              HAND_CONNECTIONS.forEach(([s, e]) => {
+                const p1 = landmarks[s], p2 = landmarks[e];
+                if (p1 && p2) {
+                  ctx.beginPath();
+                  ctx.moveTo((1 - p1.x) * canvas.width, p1.y * canvas.height);
+                  ctx.lineTo((1 - p2.x) * canvas.width, p2.y * canvas.height);
+                  ctx.stroke();
+                }
+              });
+            });
+          }
+        }
       }
-    }
     rafRef.current = requestAnimationFrame(captureFrame);
   }, [isCapturing]);
 
@@ -294,8 +314,9 @@ export default function AdminDashboard() {
               onMouseMove={onMouseMove}
               onMouseLeave={onMouseLeave}
             >
-              <motion.div style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }} className="w-full h-full">
-                <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover grayscale-[0.5]" />
+              <motion.div style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }} className="w-full h-full relative">
+                <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover grayscale-[0.5] scale-x-[-1]" />
+                <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-10" width={640} height={480} />
                 {!isCapturing && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm">
                     <Camera className="text-white/20" size={48} />

@@ -67,7 +67,7 @@ export default function DetectorPage() {
             modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
             delegate: "GPU"
           },
-          runningMode: "VIDEO", numHands: 1
+          runningMode: "VIDEO", numHands: 2
         });
         setIsMediaPipeReady(true);
       } catch (err) {
@@ -119,28 +119,33 @@ export default function DetectorPage() {
       // High-Performance 20 FPS Throttled Detector (UI Thread Optimized)
       if (frameCountRef.current % 3 === 0) {
         const results = landmarkerRef.current.detectForVideo(video, performance.now());
-        const landmarks = results.landmarks?.[0] || [];
+        
+        if (results.landmarks && results.landmarks.length > 0) {
+          results.landmarks.forEach((landmarks, index) => {
+            // Draw skeleton (Cosmic Spec) - Fixed Coordinate Mirroring
+            ctx.strokeStyle = index === 0 ? 'rgba(0, 255, 230, 0.8)' : 'rgba(255, 0, 230, 0.8)'; 
+            ctx.lineWidth = 3; ctx.lineCap = 'round';
+            
+            HAND_CONNECTIONS.forEach(([s, e]) => {
+              const p1 = landmarks[s], p2 = landmarks[e];
+              if (p1 && p2) {
+                ctx.beginPath();
+                ctx.moveTo((1 - p1.x) * canvas.width, p1.y * canvas.height);
+                ctx.lineTo((1 - p2.x) * canvas.width, p2.y * canvas.height);
+                ctx.stroke();
+              }
+            });
 
-        if (landmarks && landmarks.length > 0) {
-          // Draw skeleton (Cosmic Spec)
-          ctx.strokeStyle = 'rgba(0, 255, 230, 0.8)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-          HAND_CONNECTIONS.forEach(([s, e]) => {
-            const p1 = landmarks[s], p2 = landmarks[e];
-            if (p1 && p2) {
-              ctx.beginPath();
-              ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
-              ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
-              ctx.stroke();
+            // Stream Primary Hand (index 0) vs. Secondary (index 1)
+            if (index === 0) {
+              const now = performance.now();
+              if (socketRef.current?.connected && !isProcessingRef.current && (now - lastEmitTimeRef.current > 100)) {
+                socketRef.current.emit('landmarks_data', { landmarks, handedness: 'Primary' });
+                isProcessingRef.current = true;
+                lastEmitTimeRef.current = now;
+              }
             }
           });
-
-          // Throttled Socket Emission (Min 100ms)
-          const now = performance.now();
-          if (socketRef.current?.connected && !isProcessingRef.current && (now - lastEmitTimeRef.current > 100)) {
-            socketRef.current.emit('landmarks_data', { landmarks, handedness: 'Unknown' });
-            isProcessingRef.current = true;
-            lastEmitTimeRef.current = now;
-          }
         }
       }
     }
