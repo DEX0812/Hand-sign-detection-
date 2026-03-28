@@ -57,8 +57,6 @@ export default function DetectorPage() {
   const isProcessingRef = useRef(false);
   const frameCountRef = useRef(0);
   const lastEmitTimeRef = useRef(0);
-  const lastLandmarksRef = useRef([]); // Persistent Landmarks for 60fps Overlay
-  const [showLearnModal, setShowLearnModal] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -98,10 +96,9 @@ export default function DetectorPage() {
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
     
     if (video.readyState >= 2) {
-      // 1. Initial Frame Clear & Draw
+      const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
       ctx.scale(-1, 1);
@@ -110,34 +107,32 @@ export default function DetectorPage() {
 
       frameCountRef.current++;
       
-      // 2. High-Performance AI Cycle (Throttled to 20 FPS)
+      // High-Performance 20 FPS Throttled Detector (UI Thread Optimized)
       if (frameCountRef.current % 3 === 0) {
         const results = landmarkerRef.current.detectForVideo(video, performance.now());
         const landmarks = results.landmarks?.[0] || [];
-        lastLandmarksRef.current = landmarks; // Update persistence buffer
 
-        // Throttled Socket Emission
-        const now = performance.now();
-        if (landmarks.length > 0 && socketRef.current?.connected && !isProcessingRef.current && (now - lastEmitTimeRef.current > 100)) {
-          socketRef.current.emit('landmarks_data', { landmarks, handedness: 'Unknown' });
-          isProcessingRef.current = true;
-          lastEmitTimeRef.current = now;
-        }
-      }
+        if (landmarks && landmarks.length > 0) {
+          // Draw skeleton (Cosmic Spec)
+          ctx.strokeStyle = 'rgba(0, 255, 230, 0.8)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+          HAND_CONNECTIONS.forEach(([s, e]) => {
+            const p1 = landmarks[s], p2 = landmarks[e];
+            if (p1 && p2) {
+              ctx.beginPath();
+              ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
+              ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+              ctx.stroke();
+            }
+          });
 
-      // 3. Persistent 60 FPS Visual Overlay (No Flicker)
-      const landmarks = lastLandmarksRef.current;
-      if (landmarks && landmarks.length > 0) {
-        ctx.strokeStyle = 'rgba(0, 255, 230, 0.8)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-        HAND_CONNECTIONS.forEach(([s, e]) => {
-          const p1 = landmarks[s], p2 = landmarks[e];
-          if (p1 && p2) {
-            ctx.beginPath();
-            ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
-            ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
-            ctx.stroke();
+          // Throttled Socket Emission (Min 100ms)
+          const now = performance.now();
+          if (socketRef.current?.connected && !isProcessingRef.current && (now - lastEmitTimeRef.current > 100)) {
+            socketRef.current.emit('landmarks_data', { landmarks, handedness: 'Unknown' });
+            isProcessingRef.current = true;
+            lastEmitTimeRef.current = now;
           }
-        });
+        }
       }
     }
     rafRef.current = requestAnimationFrame(captureFrame);
@@ -250,14 +245,9 @@ export default function DetectorPage() {
 
         {/* Controls */}
         <div className="flex flex-wrap justify-center mt-4" style={{ gap: 'var(--space-base)' }}>
-          <GlowButton onClick={toggleCamera} variant={isCapturing ? 'danger' : 'primary'} className="min-w-[150px]">
+          <GlowButton onClick={toggleCamera} variant={isCapturing ? 'danger' : 'primary'} className="min-w-[180px]">
             {isCapturing ? <><Square size={20} /> Stop Stream</> : <><Camera size={20} /> Start Stream</>}
           </GlowButton>
-          {isCapturing && (
-            <GlowButton onClick={() => setShowLearnModal(true)} variant="primary" className="bg-cyan-500/10 border-cyan-500/20 text-cyan-400">
-              <Zap size={20} /> Learn Sign
-            </GlowButton>
-          )}
           <GlowButton onClick={() => fetch(`${SOCKET_URL}/backspace`, { method: 'POST' }).catch(e => console.error("Backspace error:", e))} variant="ghost">
             <Delete size={20} /> Backspace
           </GlowButton>
@@ -272,60 +262,6 @@ export default function DetectorPage() {
           </GlowButton>
         </div>
       </div>
-      {/* Sign Learning Modal (Restored) */}
-      <AnimatePresence>
-        {showLearnModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="glass max-w-sm w-full p-8 rounded-[2.5rem] border border-white/10 flex flex-col items-center gap-6"
-            >
-              <h2 className="text-xl font-bold text-white font-display">Neural Template</h2>
-              <div className="w-full space-y-2">
-                <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block ml-1">Sign Label</label>
-                <div className="relative group">
-                  <input
-                    type="text"
-                    id="signLabelInput"
-                    placeholder="e.g. Hello"
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-cyan-500/50 transition-all font-mono"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const label = e.target.value;
-                        if (!label || lastLandmarksRef.current.length === 0) return;
-                        fetch(`${SOCKET_URL}/train`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ label, landmarks: lastLandmarksRef.current })
-                        }).then(() => setShowLearnModal(false));
-                      }
-                    }}
-                  />
-                  <button 
-                    onClick={() => {
-                      const input = document.getElementById('signLabelInput');
-                      const label = input.value;
-                      if (!label || lastLandmarksRef.current.length === 0) return;
-                      fetch(`${SOCKET_URL}/train`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ label, landmarks: lastLandmarksRef.current })
-                      }).then(() => setShowLearnModal(false));
-                    }}
-                    className="absolute right-2 top-2 p-3 bg-cyan-400 text-black rounded-xl hover:bg-cyan-300 transition-colors"
-                  >
-                    <Activity size={20} />
-                  </button>
-                </div>
-              </div>
-              <p className="text-[10px] text-white/40 text-center leading-relaxed">
-                Position your hand clearly in the viewport and hold the gesture steady before clicking to capture.
-              </p>
-              <button onClick={() => setShowLearnModal(false)} className="text-xs text-white/20 hover:text-white/60 transition-colors">Abort Uplink</button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
