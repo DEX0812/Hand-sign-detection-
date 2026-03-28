@@ -17,11 +17,11 @@ from core.models import HandPoint
 
 app = FastAPI()
 
-# Enable CORS
+# Enable CORS (Nuclear Mode: Universal Access)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://hand-sign-detection-lac.vercel.app", "http://localhost:5173", "*"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -5,21 +5,12 @@ import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { useMouseParallax } from '../hooks/useMouseParallax';
 import { Settings, ExternalLink, ShieldCheck } from 'lucide-react';
 
-const getSocketUrl = () => {
-  // Clear any legacy/stale discovery URLs to prevent 'nhc0' persistence
-  const savedUrl = localStorage.getItem('SIGNVISION_API_URL');
-  if (savedUrl && (savedUrl.includes('nhc0') || savedUrl.includes('signvision'))) {
-    localStorage.removeItem('SIGNVISION_API_URL');
-  }
+// NUCLEAR CACHE KILLER: Run immediately on script load
+if (typeof window !== 'undefined') {
+  localStorage.removeItem('SIGNVISION_API_URL');
+}
 
-  const finalUrl = localStorage.getItem('SIGNVISION_API_URL') || 
-                   import.meta.env.VITE_API_URL || 
-                   'https://hand-sign-detection-4pz0.onrender.com';
-                   
-  return finalUrl;
-};
-
-const SOCKET_URL = getSocketUrl();
+const SOCKET_URL = 'https://hand-sign-detection-4pz0.onrender.com';
 
 export default function AdminDashboard() {
   const { rotateX, rotateY, onMouseMove, onMouseLeave } = useMouseParallax(8);
