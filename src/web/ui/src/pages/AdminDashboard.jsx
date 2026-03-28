@@ -4,7 +4,7 @@ import { Trash2, Edit2, Check, X, Save, Plus, Camera, Search, RefreshCw, Zap } f
 import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { useMouseParallax } from '../hooks/useMouseParallax';
 
-const SOCKET_URL = 'http://localhost:8000';
+const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 export default function AdminDashboard() {
   const { rotateX, rotateY, onMouseMove, onMouseLeave } = useMouseParallax(8);
@@ -20,6 +20,7 @@ export default function AdminDashboard() {
   const landmarkerRef = useRef(null);
   const latestLandmarksRef = useRef([]);
   const rafRef = useRef(null);
+  const frameCountRef = useRef(0);
 
   useEffect(() => {
     fetchSigns();
@@ -28,15 +29,19 @@ export default function AdminDashboard() {
   }, []);
 
   const initMediaPipe = async () => {
-    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
-    landmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-        delegate: "CPU"
-      },
-      runningMode: "VIDEO", numHands: 1
-    });
-    setIsMediaPipeReady(true);
+    try {
+      const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/wasm");
+      landmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+          delegate: "GPU"
+        },
+        runningMode: "VIDEO", numHands: 1
+      });
+      setIsMediaPipeReady(true);
+    } catch (err) {
+      console.error("MediaPipe Init Error (Admin):", err);
+    }
   };
 
   const fetchSigns = async () => {
@@ -50,9 +55,15 @@ export default function AdminDashboard() {
   const captureFrame = useCallback(() => {
     if (!isCapturing || !videoRef.current || !landmarkerRef.current) return;
     const video = videoRef.current;
+    
     if (video.readyState >= 2) {
-      const results = landmarkerRef.current.detectForVideo(video, performance.now());
-      latestLandmarksRef.current = results.landmarks?.[0] || [];
+      frameCountRef.current++;
+      
+      // Throttled Admin Viewport (20 FPS)
+      if (frameCountRef.current % 3 === 0) {
+        const results = landmarkerRef.current.detectForVideo(video, performance.now());
+        latestLandmarksRef.current = results.landmarks?.[0] || [];
+      }
     }
     rafRef.current = requestAnimationFrame(captureFrame);
   }, [isCapturing]);
