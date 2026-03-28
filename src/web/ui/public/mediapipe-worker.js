@@ -1,19 +1,20 @@
 /**
- * SignVision AI - MediaPipe Background Worker
- * Offloads AI landmarks detection from the UI thread for zero-lag 60fps performance.
+ * SignVision AI - MediaPipe Background Worker (V1.1 Stable)
+ * Optimized version with error reporting and stable loading paths.
  */
 
-importScripts("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js");
+// Use stable version to prevent CDN version mismatch
+const MP_VERSION = "0.10.15";
+importScripts(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/vision_bundle.js`);
 
 const { HandLandmarker, FilesetResolver } = self.tasksVision;
-
 let handLandmarker;
 const MODEL_ASSET_PATH = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 
 async function initLandmarker() {
   try {
     const vision = await FilesetResolver.forVisionTasks(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
+      `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/wasm`
     );
     handLandmarker = await HandLandmarker.createFromOptions(vision, {
       baseOptions: {
@@ -26,8 +27,10 @@ async function initLandmarker() {
       minHandPresenceConfidence: 0.5,
       minTrackingConfidence: 0.5
     });
+    console.log("Worker: MediaPipe HandLandmarker Initialized Successfully");
     self.postMessage({ type: 'ready' });
   } catch (error) {
+    console.error("Worker Initialization Failed:", error);
     self.postMessage({ type: 'error', message: error.message });
   }
 }
@@ -49,9 +52,10 @@ self.onmessage = async (event) => {
       timestamp
     });
     
-    // Close the ImageBitmap to free up memory
-    if (frame.close) frame.close();
+    // Cleanup ImageBitmap
+    if (frame && frame.close) frame.close();
   } catch (err) {
-    console.error("Worker detection error:", err);
+    // If detection fails, inform the main thread to consider fallback
+    self.postMessage({ type: 'error', message: "Detection Cycle Failed" });
   }
 };
