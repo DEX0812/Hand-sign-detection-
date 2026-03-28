@@ -6,16 +6,17 @@ import { useMouseParallax } from '../hooks/useMouseParallax';
 import { Settings, ExternalLink, ShieldCheck } from 'lucide-react';
 
 const getSocketUrl = () => {
+  // Clear any legacy/stale discovery URLs to prevent 'nhc0' persistence
   const savedUrl = localStorage.getItem('SIGNVISION_API_URL');
-  if (savedUrl) return savedUrl;
-  
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl && envUrl.includes('render.com')) return envUrl;
-  
-  if (window.location.hostname.includes('vercel.app')) {
-    return 'https://hand-sign-detection-4pz0.onrender.com';
+  if (savedUrl && (savedUrl.includes('nhc0') || savedUrl.includes('signvision'))) {
+    localStorage.removeItem('SIGNVISION_API_URL');
   }
-  return 'http://127.0.0.1:8000';
+
+  const finalUrl = localStorage.getItem('SIGNVISION_API_URL') || 
+                   import.meta.env.VITE_API_URL || 
+                   'https://hand-sign-detection-4pz0.onrender.com';
+                   
+  return finalUrl;
 };
 
 const SOCKET_URL = getSocketUrl();

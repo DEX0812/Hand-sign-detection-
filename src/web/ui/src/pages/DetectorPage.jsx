@@ -6,14 +6,7 @@ import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { useMouseParallax } from '../hooks/useMouseParallax';
 
 const getSocketUrl = () => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl && envUrl.includes('render.com')) return envUrl;
-  
-  // Primary Production Link
-  if (window.location.hostname.includes('vercel.app')) {
-    return 'https://hand-sign-detection-4pz0.onrender.com';
-  }
-  return 'http://127.0.0.1:8000';
+  return import.meta.env.VITE_API_URL || 'https://hand-sign-detection-4pz0.onrender.com';
 };
 
 const SOCKET_URL = getSocketUrl();
