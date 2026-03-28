@@ -124,8 +124,14 @@ export default function AdminDashboard() {
     } else {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       videoRef.current.srcObject = stream;
-      videoRef.current.play();
-      setIsCapturing(true);
+      videoRef.current.onloadedmetadata = () => {
+        videoRef.current.play();
+        if (canvasRef.current) {
+          canvasRef.current.width = videoRef.current.videoWidth;
+          canvasRef.current.height = videoRef.current.videoHeight;
+        }
+        setIsCapturing(true);
+      };
     }
   };
 
