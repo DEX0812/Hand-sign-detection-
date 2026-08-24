@@ -18,14 +18,36 @@ from core.database import init_db, create_user, authenticate_user, get_user_stat
 
 app = FastAPI()
 
-# Enable CORS (Nuclear Mode: Universal Access)
+# Enable CORS (Universal Access with regex matching and credential support)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=False,
+    allow_origin_regex=r"https?://.*",
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+@app.middleware("http")
+async def cors_handler_middleware(request, call_next):
+    origin = request.headers.get("origin", "*")
+    if request.method == "OPTIONS":
+        from fastapi.responses import Response
+        response = Response(status_code=200)
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
+    
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
+
 
 @app.get("/")
 async def root():
@@ -175,6 +197,7 @@ async def add_space():
 def startup_event():
     init_db()
 
+@app.post("/api/auth/register/")
 @app.post("/api/auth/register")
 async def register(data: dict):
     username = data.get("username")
@@ -191,6 +214,7 @@ async def register(data: dict):
     else:
         return {"status": "error", "message": "Username already exists"}
 
+@app.post("/api/auth/login/")
 @app.post("/api/auth/login")
 async def login(data: dict):
     username = data.get("username")
@@ -210,6 +234,7 @@ async def login(data: dict):
     else:
         return {"status": "error", "message": "Invalid username or password"}
 
+@app.post("/api/user/status/")
 @app.post("/api/user/status")
 async def user_status(data: dict):
     username = data.get("token")
@@ -221,6 +246,7 @@ async def user_status(data: dict):
         return {"status": "success", "userStatus": status}
     return {"status": "error", "message": "User not found"}
 
+@app.post("/api/user/checkout/")
 @app.post("/api/user/checkout")
 async def checkout(data: dict):
     username = data.get("token")
@@ -239,6 +265,7 @@ async def checkout(data: dict):
         return {"status": "success", "message": "Subscription activated successfully!", "userStatus": status}
     return {"status": "error", "message": "Failed to process checkout"}
 
+@app.post("/api/user/cancel/")
 @app.post("/api/user/cancel")
 async def cancel_sub(data: dict):
     username = data.get("token")
@@ -251,6 +278,7 @@ async def cancel_sub(data: dict):
         return {"status": "success", "message": "Subscription cancelled.", "userStatus": status}
     return {"status": "error", "message": "Failed to cancel subscription"}
 
+@app.post("/api/user/simulate-expiry/")
 @app.post("/api/user/simulate-expiry")
 async def expire_sub(data: dict):
     username = data.get("token")

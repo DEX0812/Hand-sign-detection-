@@ -10,7 +10,8 @@ if (typeof window !== 'undefined') {
   localStorage.removeItem('SIGNVISION_API_URL');
 }
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://hand-sign-detection-4pz0.onrender.com');
+import { API_BASE_URL } from '../apiConfig';
+const SOCKET_URL = API_BASE_URL;
 
 export default function AdminDashboard() {
   const { rotateX, rotateY, onMouseMove, onMouseLeave } = useMouseParallax(8);

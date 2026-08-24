@@ -6,7 +6,7 @@ import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { useMouseParallax } from '../hooks/useMouseParallax';
 import { useNavigate } from 'react-router-dom';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://hand-sign-detection-4pz0.onrender.com');
+import { API_BASE_URL } from '../apiConfig';
 const SOCKET_URL = API_BASE_URL;
 const HAND_CONNECTIONS = [
   [0,1],[1,2],[2,3],[3,4], [0,5],[5,6],[6,7],[7,8], [0,9],[9,10],[10,11],[11,12],

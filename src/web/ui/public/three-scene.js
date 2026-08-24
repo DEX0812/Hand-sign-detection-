@@ -1,4 +1,4 @@
-import * as THREE from 'https://cdn.skypack.dev/three';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
 
 /**
  * SignVision AI - High-Fidelity WebGL Background
@@ -66,9 +66,9 @@ function initScene() {
         mouseY = (event.clientY / window.innerHeight) - 0.5;
     });
 
-    const clock = new THREE.Clock();
+    const startTime = performance.now();
     const animate = () => {
-        const elapsedTime = clock.getElapsedTime();
+        const elapsedTime = (performance.now() - startTime) / 1000;
         particlesMesh.rotation.y = elapsedTime * 0.02;
         particlesMesh.rotation.x = elapsedTime * 0.01;
 

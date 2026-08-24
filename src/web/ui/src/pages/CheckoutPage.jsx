@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, Lock, CreditCard, ArrowLeft, RefreshCw, CheckCircle, FileText, Download, QrCode, Smartphone } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://hand-sign-detection-4pz0.onrender.com');
+import { API_BASE_URL } from '../apiConfig';
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg">

@@ -11,7 +11,7 @@ import CheckoutPage from './pages/CheckoutPage';
 import ProfilePage from './pages/ProfilePage';
 import './App.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://hand-sign-detection-4pz0.onrender.com');
+import { API_BASE_URL } from './apiConfig';
 
 // Admin Auth Guard
 const AdminGuard = ({ children }) => {
