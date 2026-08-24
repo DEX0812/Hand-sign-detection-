@@ -16,10 +16,11 @@ function ParticleField() {
     return pos;
   }, []);
 
-  useFrame((state) => {
+  useFrame(() => {
     if (mesh.current) {
-      mesh.current.rotation.y = state.clock.elapsedTime * 0.015;
-      mesh.current.rotation.x = state.clock.elapsedTime * 0.008;
+      const elapsedTime = performance.now() * 0.001;
+      mesh.current.rotation.y = elapsedTime * 0.015;
+      mesh.current.rotation.x = elapsedTime * 0.008;
     }
   });
 
@@ -45,10 +46,11 @@ function ParticleField() {
 
 function AtmosphericOrb({ position, color, scale = 1, speed = 0.3 }) {
   const mesh = useRef();
-  useFrame((state) => {
+  useFrame(() => {
     if (mesh.current) {
-      mesh.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * speed) * 0.6;
-      mesh.current.position.x = position[0] + Math.cos(state.clock.elapsedTime * speed * 0.5) * 0.3;
+      const elapsedTime = performance.now() * 0.001;
+      mesh.current.position.y = position[1] + Math.sin(elapsedTime * speed) * 0.6;
+      mesh.current.position.x = position[0] + Math.cos(elapsedTime * speed * 0.5) * 0.3;
     }
   });
 
