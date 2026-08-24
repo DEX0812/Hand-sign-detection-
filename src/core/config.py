@@ -6,20 +6,27 @@ class Config:
     # Adjusted path to look for models folder relative to this file
     MODEL_FILENAME = os.path.join(os.path.dirname(__file__), "..", "..", "models", "hand_landmarker.task")
     
-    # Recognition thresholds
-    STABLE_FRAMES = 8
-    HISTORY_SIZE = 10
-    MIN_CONFIDENCE = 0.65
+    # Recognition thresholds (Optimized for ultra-low latency)
+    STABLE_FRAMES = 4
+    HISTORY_SIZE = 5
+    MIN_CONFIDENCE = 0.60
     
-    # Distance thresholds
+    # Raw distance thresholds (legacy)
     THUMB_INDEX_CLOSE = 0.05
     THUMB_INDEX_FAR = 0.1
     FINGERS_TOGETHER = 0.03
     FINGERS_APART = 0.05
     CROSSED_THRESHOLD = 0.02
     
+    # Palm-normalized distance thresholds (Scale & depth invariant)
+    NORM_THUMB_INDEX_CLOSE = 0.30
+    NORM_THUMB_INDEX_FAR = 0.55
+    NORM_FINGERS_TOGETHER = 0.22
+    NORM_FINGERS_APART = 0.38
+    NORM_CROSSED_THRESHOLD = 0.18
+    
     # Performance settings
-    NUM_HANDS = 1
+    NUM_HANDS = 2
     RESIZE_WIDTH = 320
     RESIZE_HEIGHT = 240
     DRAW_SERVER_SIDE = False

@@ -14,6 +14,13 @@ class HandPoint:
     
     def distance_to(self, other: 'HandPoint') -> float:
         return math.sqrt((self.x - other.x)**2 + (self.y - other.y)**2)
+    
+    def distance_to_3d(self, other: 'HandPoint') -> float:
+        return math.sqrt((self.x - other.x)**2 + (self.y - other.y)**2 + (self.z - other.z)**2)
+    
+    def vector_to(self, other: 'HandPoint') -> Tuple[float, float, float]:
+        return (other.x - self.x, other.y - self.y, other.z - self.z)
+
 
 @dataclass
 class RecognitionResult: 

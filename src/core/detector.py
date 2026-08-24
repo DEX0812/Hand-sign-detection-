@@ -35,40 +35,53 @@ class FeatureExtractor:
     PINKY_PIP = 18
     PINKY_MCP = 17
     WRIST = 0
-    
+    def get_palm_size(self, landmarks: List[HandPoint]) -> float:
+        """Get 3D palm size (wrist to middle MCP distance)."""
+        wrist = landmarks[self.WRIST]
+        middle_mcp = landmarks[self.MIDDLE_MCP]
+        size = wrist.distance_to_3d(middle_mcp)
+        return max(size, 0.05)
+
     def get_finger_states(self, landmarks: List[HandPoint], handedness: str) -> List[int]:
-        """Determine which fingers are extended."""
+        """Determine which fingers are extended in a 3D rotation & scale invariant manner."""
         states = [0, 0, 0, 0, 0]
-        is_right = (handedness == "Right")
+        wrist = landmarks[self.WRIST]
+        palm_size = self.get_palm_size(landmarks)
         
-        # Thumb
+        # Thumb: compare tip distance to pinky MCP vs IP distance to pinky MCP
         thumb_tip = landmarks[self.THUMB_TIP]
         thumb_ip = landmarks[self.THUMB_IP]
+        pinky_mcp = landmarks[self.PINKY_MCP]
+        index_mcp = landmarks[self.INDEX_MCP]
         
-        if is_right:
-            states[0] = 1 if thumb_tip.x < thumb_ip.x else 0
-        else:
-            states[0] = 1 if thumb_tip.x > thumb_ip.x else 0
+        # Extended thumb points away from palm MCPs
+        thumb_tip_dist = thumb_tip.distance_to_3d(pinky_mcp)
+        thumb_ip_dist = thumb_ip.distance_to_3d(pinky_mcp)
+        states[0] = 1 if thumb_tip_dist > thumb_ip_dist * 1.05 or thumb_tip.distance_to_3d(index_mcp) > 0.45 * palm_size else 0
         
-        # Other fingers
+        # Other fingers (Index, Middle, Ring, Pinky):
+        # Tip distance to wrist vs PIP distance to wrist (Rotation Invariant)
         finger_tips = [self.INDEX_TIP, self.MIDDLE_TIP, self.RING_TIP, self.PINKY_TIP]
         finger_pips = [self.INDEX_PIP, self.MIDDLE_PIP, self.RING_PIP, self.PINKY_PIP]
         
         for i, (tip_idx, pip_idx) in enumerate(zip(finger_tips, finger_pips)):
-            states[i + 1] = 1 if landmarks[tip_idx].y < landmarks[pip_idx].y else 0
+            tip_dist = landmarks[tip_idx].distance_to_3d(wrist)
+            pip_dist = landmarks[pip_idx].distance_to_3d(wrist)
+            states[i + 1] = 1 if tip_dist > pip_dist * 1.12 else 0
         
         return states
     
     def get_distances(self, landmarks: List[HandPoint]) -> Dict[str, float]:
-        """Calculate key distances."""
+        """Calculate key distances normalized by 3D palm size (scale & distance invariant)."""
+        palm_size = self.get_palm_size(landmarks)
         return {
-            'thumb_index': landmarks[self.THUMB_TIP].distance_to(landmarks[self.INDEX_TIP]),
-            'thumb_middle': landmarks[self.THUMB_TIP].distance_to(landmarks[self.MIDDLE_TIP]),
-            'thumb_ring': landmarks[self.THUMB_TIP].distance_to(landmarks[self.RING_TIP]),
-            'thumb_pinky': landmarks[self.THUMB_TIP].distance_to(landmarks[self.PINKY_TIP]),
-            'index_middle': landmarks[self.INDEX_TIP].distance_to(landmarks[self.MIDDLE_TIP]),
-            'middle_ring': landmarks[self.MIDDLE_TIP].distance_to(landmarks[self.RING_TIP]),
-            'ring_pinky': landmarks[self.RING_TIP].distance_to(landmarks[self.PINKY_TIP]),
+            'thumb_index': landmarks[self.THUMB_TIP].distance_to_3d(landmarks[self.INDEX_TIP]) / palm_size,
+            'thumb_middle': landmarks[self.THUMB_TIP].distance_to_3d(landmarks[self.MIDDLE_TIP]) / palm_size,
+            'thumb_ring': landmarks[self.THUMB_TIP].distance_to_3d(landmarks[self.RING_TIP]) / palm_size,
+            'thumb_pinky': landmarks[self.THUMB_TIP].distance_to_3d(landmarks[self.PINKY_TIP]) / palm_size,
+            'index_middle': landmarks[self.INDEX_TIP].distance_to_3d(landmarks[self.MIDDLE_TIP]) / palm_size,
+            'middle_ring': landmarks[self.MIDDLE_TIP].distance_to_3d(landmarks[self.RING_TIP]) / palm_size,
+            'ring_pinky': landmarks[self.RING_TIP].distance_to_3d(landmarks[self.PINKY_TIP]) / palm_size,
         }
 
 # ============================================================================
@@ -96,7 +109,7 @@ class RuleBasedRecognizer:
         return result
 
     def _recognize_raw(self, landmarks: List[HandPoint], handedness: str) -> RecognitionResult:
-        """Original recognition rules."""
+        """Original recognition rules using scale-normalized thresholds."""
         finger_states = self.feature_extractor.get_finger_states(landmarks, handedness)
         distances = self.feature_extractor.get_distances(landmarks)
         
@@ -104,10 +117,10 @@ class RuleBasedRecognizer:
         
         # ===== 5 FINGERS =====
         if finger_count == 5:
-            if distances['thumb_index'] > Config.THUMB_INDEX_FAR:
-                return RecognitionResult("C", 0.85, finger_states=finger_states)
-            elif distances['thumb_index'] < Config.THUMB_INDEX_CLOSE:
-                return RecognitionResult("O", 0.90, finger_states=finger_states)
+            if distances['thumb_index'] > Config.NORM_THUMB_INDEX_FAR:
+                return RecognitionResult("C", 0.90, finger_states=finger_states)
+            elif distances['thumb_index'] < Config.NORM_THUMB_INDEX_CLOSE:
+                return RecognitionResult("O", 0.92, finger_states=finger_states)
         
         # ===== 0 FINGERS (FIST) =====
         if finger_count == 0:
@@ -116,58 +129,58 @@ class RuleBasedRecognizer:
             index_mcp = landmarks[self.feature_extractor.INDEX_MCP]
             
             if thumb_tip.x > thumb_mcp.x:
-                return RecognitionResult("S", 0.80, finger_states=finger_states)
+                return RecognitionResult("S", 0.85, finger_states=finger_states)
             elif thumb_tip.x < index_mcp.x:
                 if thumb_tip.y < landmarks[self.feature_extractor.THUMB_MCP].y:
-                    return RecognitionResult("M", 0.75, finger_states=finger_states)
+                    return RecognitionResult("M", 0.80, finger_states=finger_states)
                 else:
-                    return RecognitionResult("N", 0.75, finger_states=finger_states)
+                    return RecognitionResult("N", 0.80, finger_states=finger_states)
             else:
-                return RecognitionResult("A", 0.85, finger_states=finger_states)
+                return RecognitionResult("A", 0.88, finger_states=finger_states)
         
         # ===== 1 FINGER =====
         if finger_count == 1:
             if finger_states[0] == 1:  # Thumb
-                return RecognitionResult("L", 0.80, finger_states=finger_states)
+                return RecognitionResult("L", 0.85, finger_states=finger_states)
             elif finger_states[1] == 1:  # Index
-                return RecognitionResult("D", 0.85, finger_states=finger_states)
+                return RecognitionResult("D", 0.90, finger_states=finger_states)
             elif finger_states[4] == 1:  # Pinky
-                return RecognitionResult("I", 0.90, finger_states=finger_states)
+                return RecognitionResult("I", 0.92, finger_states=finger_states)
         
         # ===== 2 FINGERS =====
         if finger_count == 2:
             if finger_states[1] == 1 and finger_states[2] == 1:  # Index and Middle
-                if distances['index_middle'] < Config.FINGERS_TOGETHER:
-                    return RecognitionResult("U", 0.85, finger_states=finger_states)
-                elif distances['index_middle'] > Config.FINGERS_APART:
-                    return RecognitionResult("V", 0.90, finger_states=finger_states)
+                if distances['index_middle'] < Config.NORM_FINGERS_TOGETHER:
+                    return RecognitionResult("U", 0.88, finger_states=finger_states)
+                elif distances['index_middle'] > Config.NORM_FINGERS_APART:
+                    return RecognitionResult("V", 0.92, finger_states=finger_states)
             elif finger_states[0] == 1 and finger_states[1] == 1:  # Thumb and Index
-                if distances['thumb_index'] > Config.THUMB_INDEX_FAR:
-                    return RecognitionResult("L", 0.85, finger_states=finger_states)
+                if distances['thumb_index'] > Config.NORM_THUMB_INDEX_FAR:
+                    return RecognitionResult("L", 0.88, finger_states=finger_states)
                 else:
-                    return RecognitionResult("G", 0.80, finger_states=finger_states)
+                    return RecognitionResult("G", 0.82, finger_states=finger_states)
         
         # ===== 3 FINGERS =====
         if finger_count == 3:
             if finger_states[1] == 1 and finger_states[2] == 1 and finger_states[3] == 1:
-                return RecognitionResult("W", 0.85, finger_states=finger_states)
+                return RecognitionResult("W", 0.88, finger_states=finger_states)
             elif finger_states[0] == 1 and finger_states[1] == 1 and finger_states[2] == 1:
-                return RecognitionResult("K", 0.80, finger_states=finger_states)
+                return RecognitionResult("K", 0.85, finger_states=finger_states)
         
         # ===== 4 FINGERS =====
         if finger_count == 4:
             if finger_states[0] == 0:  # Thumb tucked
-                return RecognitionResult("B", 0.90, finger_states=finger_states)
+                return RecognitionResult("B", 0.92, finger_states=finger_states)
             elif finger_states[1] == 0:  # Index tucked
-                if distances['thumb_index'] < Config.THUMB_INDEX_CLOSE:
-                    return RecognitionResult("F", 0.85, finger_states=finger_states)
+                if distances['thumb_index'] < Config.NORM_THUMB_INDEX_CLOSE:
+                    return RecognitionResult("F", 0.88, finger_states=finger_states)
         
         # ===== SPECIAL =====
         if finger_states == [1, 0, 0, 0, 1]:
-            return RecognitionResult("Y", 0.90, finger_states=finger_states)
+            return RecognitionResult("Y", 0.92, finger_states=finger_states)
         
-        if finger_states == [0, 1, 1, 0, 0] and distances['index_middle'] < Config.CROSSED_THRESHOLD:
-            return RecognitionResult("R", 0.85, finger_states=finger_states)
+        if finger_states == [0, 1, 1, 0, 0] and distances['index_middle'] < Config.NORM_CROSSED_THRESHOLD:
+            return RecognitionResult("R", 0.88, finger_states=finger_states)
         
         return RecognitionResult("?", 0.0, finger_states=finger_states)
 
@@ -176,30 +189,35 @@ class RuleBasedRecognizer:
 # ============================================================================
 
 class TemporalSmoother:
-    """Smooths recognition results over time."""
+    """Smooths recognition results with ultra-fast latency fast-pathing."""
     
-    def __init__(self, history_size: int = 10):
+    def __init__(self, history_size: int = 5):
         self.history = deque(maxlen=history_size)
         self.confidence_history = deque(maxlen=history_size)
     
     def smooth(self, result: RecognitionResult) -> RecognitionResult:
-        """Apply temporal smoothing."""
+        """Apply temporal smoothing with instant response on confident results."""
         self.history.append(result.letter)
         self.confidence_history.append(result.confidence)
         
-        if len(self.history) < 3:
+        # Fast path: High confidence single frame or matching recent frames
+        if result.confidence >= 0.85:
             return result
         
+        if len(self.history) < 2:
+            return result
+        
+        # Fast path if last 2 consecutive predictions match
+        if self.history[-1] == self.history[-2] and self.history[-1] != "?":
+            return result
+
         # Get most common letter
         counter = Counter(self.history)
         most_common = counter.most_common(1)[0]
         smoothed_letter = most_common[0]
         vote_confidence = most_common[1] / len(self.history)
         
-        # Average confidence
         avg_confidence = sum(self.confidence_history) / len(self.confidence_history)
-        
-        # Combined confidence
         confidence = 0.7 * vote_confidence + 0.3 * avg_confidence
         
         return RecognitionResult(
@@ -238,6 +256,8 @@ class HandSignDetector:
         self.letter_stable_counter = 0
         self.stable_threshold = Config.STABLE_FRAMES
         self.space_counter = 0
+        self.no_hand_counter = 0
+        self.has_removed_hand = False
         
         # Performance tracking
         self.fps = 0
@@ -374,9 +394,10 @@ class HandSignDetector:
             else:
                 self.letter_stable_counter += 1
                 if self.letter_stable_counter == self.stable_threshold:
-                    if not self.current_sentence or self.current_sentence[-1] != current_letter:
+                    if not self.current_sentence or self.current_sentence[-1] != current_letter or self.has_removed_hand:
                         self.current_sentence += current_letter
                         print(f"Added: {current_letter}")
+                        self.has_removed_hand = False
                     self.letter_stable_counter = 0
     
     def backspace(self):
@@ -453,13 +474,31 @@ class HandSignDetector:
         
         # Build sentence if confident
         if smoothed.confidence >= Config.MIN_CONFIDENCE:
+            self.no_hand_counter = 0
             self.build_sentence(smoothed.letter)
+        else:
+            self.no_hand_counter += 1
+            if self.no_hand_counter >= 5:
+                self.has_removed_hand = True
+                self.last_letter = ""
+                self.letter_stable_counter = 0
         
         # Store for internal tracking
         self.last_result = smoothed
         self.last_landmarks = landmarks
         
         return smoothed
+
+    def process_no_hand(self):
+        """Handle when no hand is detected in a frame."""
+        self._update_fps()
+        self.no_hand_counter += 1
+        if self.no_hand_counter >= 5:
+            self.has_removed_hand = True
+            self.last_letter = ""
+            self.letter_stable_counter = 0
+        self.last_result = None
+        self.last_landmarks = []
 
     def learn_sign(self, label, landmarks_data, handedness):
         """Save a new sign pattern."""
@@ -471,16 +510,10 @@ class HandSignDetector:
             finger_states = self.feature_extractor.get_finger_states(landmarks, handedness)
             distances = self.feature_extractor.get_distances(landmarks)
             
-            # Normalize distances (relative to palm size)
-            palm_size = landmarks[0].distance_to(landmarks[9]) # Wrist to middle MCP
-            if palm_size < 0.01: palm_size = 0.1
-            
-            normalized_distances = {k: v / palm_size for k, v in distances.items()}
-            
             # Store sign pattern
             self.custom_signs[label] = {
                 "finger_states": finger_states,
-                "distances": normalized_distances,
+                "distances": distances,
                 "handedness": handedness
             }
             
@@ -570,10 +603,6 @@ class HandSignDetector:
         finger_states = self.feature_extractor.get_finger_states(landmarks, handedness)
         distances = self.feature_extractor.get_distances(landmarks)
         
-        palm_size = landmarks[0].distance_to(landmarks[9])
-        if palm_size < 0.01: palm_size = 0.1
-        normalized_distances = {k: v / palm_size for k, v in distances.items()}
-        
         best_match = None
         highest_score = 0
         
@@ -584,13 +613,13 @@ class HandSignDetector:
             
             # Calculate distance similarity
             dist_score = 0
-            for k, v in normalized_distances.items():
+            for k, v in distances.items():
                 ref_v = pattern["distances"].get(k, 0)
                 # 1.0 is perfect match, subtract error
                 diff = abs(v - ref_v)
                 dist_score += max(0, 1.0 - (diff * 2)) 
             
-            avg_dist_score = dist_score / len(normalized_distances)
+            avg_dist_score = dist_score / len(distances)
             
             # Overall confidence
             confidence = (state_match / 5.0) * 0.4 + avg_dist_score * 0.6

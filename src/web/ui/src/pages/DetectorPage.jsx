@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Square, Copy, Zap, Activity, Trash2, Delete, Type } from 'lucide-react';
+import { Camera, Square, Copy, Zap, Activity, Trash2, Delete, Type, Clock } from 'lucide-react';
 import io from 'socket.io-client';
 import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { useMouseParallax } from '../hooks/useMouseParallax';
+import { useNavigate } from 'react-router-dom';
 
-const SOCKET_URL = 'https://hand-sign-detection-4pz0.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://hand-sign-detection-4pz0.onrender.com');
+const SOCKET_URL = API_BASE_URL;
 const HAND_CONNECTIONS = [
   [0,1],[1,2],[2,3],[3,4], [0,5],[5,6],[6,7],[7,8], [0,9],[9,10],[10,11],[11,12],
-  [0,13],[13,14],[14,15],[15,16], [0,17],[17,18],[18,19],[19,20], [5,9],[9,13],[13,17]
+  [0,13],[13,14],[15,16], [0,17],[17,18],[18,19],[19,20], [5,9],[9,13],[13,17]
 ];
 
 function FloatingPanel({ children, className = '', delay = 0 }) {
@@ -48,6 +50,29 @@ export default function DetectorPage() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [recognition, setRecognition] = useState({ letter: '?', sentence: '', confidence: 0, fps: 0 });
   const [isMediaPipeReady, setIsMediaPipeReady] = useState(false);
+  const [trialStatus, setTrialStatus] = useState(null);
+  const navigate = useNavigate();
+  const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    if (!token) return;
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/user/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          setTrialStatus(data.userStatus);
+        }
+      } catch (err) {
+        console.error("Error fetching trial status:", err);
+      }
+    };
+    fetchStatus();
+  }, [token]);
   
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -77,13 +102,12 @@ export default function DetectorPage() {
     init();
 
     socketRef.current = io(SOCKET_URL, {
-      transports: ['websocket'],
-      secure: true,
-      reconnectionAttempts: 5
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 10
     });
 
     socketRef.current.on('connect', () => {
-      console.log("Neural Uplink Established via WebSocket");
+      console.log("Neural Uplink Established via WebSocket to", SOCKET_URL);
     });
 
     socketRef.current.on('recognition_result', (data) => {
@@ -116,50 +140,48 @@ export default function DetectorPage() {
 
       frameCountRef.current++;
       
-      // High-Performance 20 FPS Throttled Detector (UI Thread Optimized)
-      if (frameCountRef.current % 3 === 0) {
-        const results = landmarkerRef.current.detectForVideo(video, performance.now());
-        
-        if (results.landmarks && results.landmarks.length > 0) {
-          results.landmarks.forEach((landmarks, index) => {
-            const baseColor = index === 0 ? 'rgba(0, 255, 230, 0.8)' : 'rgba(255, 0, 230, 0.8)';
-            
-            // Draw skeleton with Neon Glow
-            ctx.strokeStyle = baseColor;
-            ctx.lineWidth = 3; ctx.lineCap = 'round';
-            ctx.shadowBlur = 15; ctx.shadowColor = baseColor;
-            
-            HAND_CONNECTIONS.forEach(([s, e]) => {
-              const p1 = landmarks[s], p2 = landmarks[e];
-              if (p1 && p2) {
-                ctx.beginPath();
-                ctx.moveTo((1 - p1.x) * canvas.width, p1.y * canvas.height);
-                ctx.lineTo((1 - p2.x) * canvas.width, p2.y * canvas.height);
-                ctx.stroke();
-              }
-            });
-
-            // Draw Highlighted Joint Points
-            ctx.shadowBlur = 0;
-            landmarks.forEach(p => {
-              ctx.fillStyle = baseColor;
+      // High-FPS Real-time Detector (Zero-Delay Frame Processing)
+      const results = landmarkerRef.current.detectForVideo(video, performance.now());
+      
+      if (results.landmarks && results.landmarks.length > 0) {
+        results.landmarks.forEach((landmarks, index) => {
+          const baseColor = index === 0 ? 'rgba(0, 255, 230, 0.8)' : 'rgba(255, 0, 230, 0.8)';
+          
+          // Draw skeleton with Neon Glow
+          ctx.strokeStyle = baseColor;
+          ctx.lineWidth = 3; ctx.lineCap = 'round';
+          ctx.shadowBlur = 15; ctx.shadowColor = baseColor;
+          
+          HAND_CONNECTIONS.forEach(([s, e]) => {
+            const p1 = landmarks[s], p2 = landmarks[e];
+            if (p1 && p2) {
               ctx.beginPath();
-              ctx.arc((1 - p.x) * canvas.width, p.y * canvas.height, 4, 0, Math.PI * 2);
-              ctx.fill();
-              ctx.strokeStyle = 'white'; ctx.lineWidth = 1; ctx.stroke();
-            });
-
-            // Stream Primary Hand (index 0)
-            if (index === 0) {
-              const now = performance.now();
-              if (socketRef.current?.connected && !isProcessingRef.current && (now - lastEmitTimeRef.current > 100)) {
-                socketRef.current.emit('landmarks_data', { landmarks, handedness: 'Primary' });
-                isProcessingRef.current = true;
-                lastEmitTimeRef.current = now;
-              }
+              ctx.moveTo((1 - p1.x) * canvas.width, p1.y * canvas.height);
+              ctx.lineTo((1 - p2.x) * canvas.width, p2.y * canvas.height);
+              ctx.stroke();
             }
           });
-        }
+
+          // Draw Highlighted Joint Points
+          ctx.shadowBlur = 0;
+          landmarks.forEach(p => {
+            ctx.fillStyle = baseColor;
+            ctx.beginPath();
+            ctx.arc((1 - p.x) * canvas.width, p.y * canvas.height, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'white'; ctx.lineWidth = 1; ctx.stroke();
+          });
+
+          // Stream Primary Hand (index 0) with low latency (30ms throttle)
+          if (index === 0) {
+            const now = performance.now();
+            if (socketRef.current?.connected && (now - lastEmitTimeRef.current > 30)) {
+              socketRef.current.emit('landmarks_data', { landmarks, handedness: 'Primary' });
+              isProcessingRef.current = true;
+              lastEmitTimeRef.current = now;
+            }
+          }
+        });
       }
     }
     rafRef.current = requestAnimationFrame(captureFrame);
@@ -190,6 +212,24 @@ export default function DetectorPage() {
   return (
     <div className="min-h-screen pt-24 px-6 flex flex-col items-center">
       <div className="max-w-4xl w-full flex flex-col" style={{ gap: 'calc(var(--space-base) * 2)' }}>
+        {/* Trial banner */}
+        {trialStatus && trialStatus.is_trial_active && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-2xl p-4 flex items-center justify-between text-xs font-semibold shadow-lg"
+          >
+            <span className="flex items-center gap-2">
+              <Clock size={16} className="animate-pulse" /> Free Trial Active: {Math.ceil(trialStatus.trial_remaining / 3600)} hours remaining.
+            </span>
+            <button 
+              onClick={() => navigate('/pricing')}
+              className="px-4 py-1.5 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 transition-colors uppercase tracking-wider text-[9px] cursor-pointer"
+            >
+              Upgrade to Premium
+            </button>
+          </motion.div>
+        )}
         {/* Header Info */}
         <div className="flex items-center justify-between" style={{ gap: 'var(--space-base)' }}>
           <div className="flex flex-col" style={{ gap: '2px' }}>

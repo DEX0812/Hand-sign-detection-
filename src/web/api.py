@@ -14,6 +14,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from core.detector import HandSignDetector
 from core.models import HandPoint
+from core.database import init_db, create_user, authenticate_user, get_user_status, update_subscription, cancel_subscription, simulate_expiry
 
 app = FastAPI()
 
@@ -54,6 +55,7 @@ async def landmarks_data(sid, data):
         
         if not landmarks:
             # Clear result if no hand detected
+            detector.process_no_hand()
             await sio.emit('recognition_result', {
                 "letter": "?",
                 "sentence": detector.current_sentence,
@@ -168,6 +170,98 @@ async def add_space():
         "landmarks": []
     })
     return {"status": "space_added", "sentence": detector.current_sentence}
+
+@app.on_event("startup")
+def startup_event():
+    init_db()
+
+@app.post("/api/auth/register")
+async def register(data: dict):
+    username = data.get("username")
+    email = data.get("email")
+    password = data.get("password")
+    
+    if not username or not email or not password:
+        return {"status": "error", "message": "Missing credentials"}
+        
+    success = create_user(username, email, password)
+    if success:
+        status = get_user_status(username)
+        return {"status": "success", "username": username, "token": username, "isAdmin": False, "userStatus": status}
+    else:
+        return {"status": "error", "message": "Username already exists"}
+
+@app.post("/api/auth/login")
+async def login(data: dict):
+    username = data.get("username")
+    password = data.get("password")
+    
+    if not username or not password:
+        return {"status": "error", "message": "Missing credentials"}
+        
+    # Check Admin
+    if username == "DEX" and password == "0...DeX...9":
+        return {"status": "success", "username": "DEX", "token": "admin_token", "isAdmin": True}
+        
+    success = authenticate_user(username, password)
+    if success:
+        status = get_user_status(username)
+        return {"status": "success", "username": username, "token": username, "isAdmin": False, "userStatus": status}
+    else:
+        return {"status": "error", "message": "Invalid username or password"}
+
+@app.post("/api/user/status")
+async def user_status(data: dict):
+    username = data.get("token")
+    if not username:
+        return {"status": "error", "message": "Missing token"}
+        
+    status = get_user_status(username)
+    if status:
+        return {"status": "success", "userStatus": status}
+    return {"status": "error", "message": "User not found"}
+
+@app.post("/api/user/checkout")
+async def checkout(data: dict):
+    username = data.get("token")
+    plan = data.get("plan")
+    
+    if not username or not plan:
+        return {"status": "error", "message": "Missing required fields"}
+        
+    durations = {"monthly": 30, "6month": 180, "yearly": 365}
+    if plan not in durations:
+        return {"status": "error", "message": "Invalid plan type"}
+        
+    success = update_subscription(username, plan, durations[plan])
+    if success:
+        status = get_user_status(username)
+        return {"status": "success", "message": "Subscription activated successfully!", "userStatus": status}
+    return {"status": "error", "message": "Failed to process checkout"}
+
+@app.post("/api/user/cancel")
+async def cancel_sub(data: dict):
+    username = data.get("token")
+    if not username:
+        return {"status": "error", "message": "Missing token"}
+        
+    success = cancel_subscription(username)
+    if success:
+        status = get_user_status(username)
+        return {"status": "success", "message": "Subscription cancelled.", "userStatus": status}
+    return {"status": "error", "message": "Failed to cancel subscription"}
+
+@app.post("/api/user/simulate-expiry")
+async def expire_sub(data: dict):
+    username = data.get("token")
+    if not username:
+        return {"status": "error", "message": "Missing token"}
+        
+    success = simulate_expiry(username)
+    if success:
+        status = get_user_status(username)
+        return {"status": "success", "message": "Expiry simulated.", "userStatus": status}
+    return {"status": "error", "message": "Failed to simulate expiry"}
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))

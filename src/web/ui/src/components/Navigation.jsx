@@ -7,6 +7,8 @@ export default function Navigation() {
   const [isOpen, setIsOpen] = React.useState(false);
   const location = useLocation();
   const isAdmin = localStorage.getItem('adminToken') === 'true';
+  const isUser = localStorage.getItem('userToken') === 'true';
+  const username = localStorage.getItem('username') || 'Member';
 
   const navLinks = [
     { name: 'HOME', path: '/' },
@@ -64,6 +66,15 @@ export default function Navigation() {
                 <LogOut size={16} />
               </button>
             </div>
+          ) : isUser ? (
+            <div className="flex items-center gap-4">
+              <Link to="/profile" className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-bold tracking-widest hover:bg-emerald-500/20 transition-all">
+                <User size={12} /> BILLING: {username.toUpperCase()}
+              </Link>
+              <button onClick={handleLogout} className="p-2 text-white/40 hover:text-red-400 transition-colors cursor-pointer">
+                <LogOut size={16} />
+              </button>
+            </div>
           ) : (
             <Link to="/login" className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] text-white/40 hover:text-white transition-all group">
               <User size={14} className="group-hover:text-white" /> LOGIN
@@ -101,9 +112,23 @@ export default function Navigation() {
             ))}
             <div className="h-px w-full bg-white/5" />
             {isAdmin ? (
-              <button onClick={handleLogout} className="text-red-400 font-bold tracking-widest text-left flex items-center gap-2">
-                <LogOut size={18} /> LOGOUT
-              </button>
+              <div className="flex flex-col gap-4">
+                <Link to="/admin" onClick={() => setIsOpen(false)} className="text-white font-bold tracking-widest flex items-center gap-2">
+                  <LayoutDashboard size={18} /> DASHBOARD
+                </Link>
+                <button onClick={handleLogout} className="text-red-400 font-bold tracking-widest text-left flex items-center gap-2 cursor-pointer">
+                  <LogOut size={18} /> LOGOUT
+                </button>
+              </div>
+            ) : isUser ? (
+              <div className="flex flex-col gap-4">
+                <Link to="/profile" onClick={() => setIsOpen(false)} className="text-emerald-400 font-bold tracking-widest flex items-center gap-2">
+                  <User size={18} /> BILLING: {username.toUpperCase()}
+                </Link>
+                <button onClick={handleLogout} className="text-red-400 font-bold tracking-widest text-left flex items-center gap-2 cursor-pointer">
+                  <LogOut size={18} /> LOGOUT
+                </button>
+              </div>
             ) : (
               <Link to="/login" onClick={() => setIsOpen(false)} className="text-white font-bold tracking-widest flex items-center gap-2">
                 <User size={18} /> LOGIN
